@@ -23,10 +23,12 @@ type or function. The following notations are allowed:
 // A MyRepo is for ...
 // @Repo
 // @Repo()
-// @Repo({})
+// @Repo({}) // comments allowed, outer {} can be omitted mostly 
 // @Repo({"value":5})
 // @Repo(5)
-// @Repo("text")
+// @Repo("text") // implicitly wrapped into {"value": "text"}
+// // @Repo("te:xt") invalid notation for auto detection
+// @Repo("value":"te:xt") // this is fine 
 // @Repo("values":["can","be","multiple"])
 // @Repo("anyKey":"anyValue","num":5,"bool":true,"nested":{"care":{"of":["your", "head"]}})
 type MyRepo interface{
