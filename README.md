@@ -23,9 +23,9 @@ type or function. The following notations are allowed:
 // A MyRepo is for ...
 // @Repo
 // @Repo()
-// @Repo({}) // comments allowed, outer {} can be omitted mostly 
+// @Repo({}) // comments allowed, outer {} can be omitted 
 // @Repo({"value":5})
-// @Repo(5)
+// @Repo(5) // implicitly wrapped into {"value": 5}
 // @Repo("text") // implicitly wrapped into {"value": "text"}
 // // @Repo("te:xt") invalid notation for auto detection
 // @Repo("value":"te:xt") // this is fine 

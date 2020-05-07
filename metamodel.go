@@ -13,6 +13,7 @@ type Package struct {
 	Name       string       `json:"name,omitempty"`
 	Packages   []*Package   `json:"packages,omitempty"`
 	Interfaces []*Interface `json:"interfaces,omitempty"`
+	Structs    []*Struct    `json:"structs,omitempty"`
 }
 
 func (p *Package) String() string {
@@ -97,6 +98,7 @@ type Interface struct {
 type Method struct {
 	Doc         string       `json:"doc,omitempty"`
 	Annotations []Annotation `json:"annotations,omitempty"`
+	Receiver    *Param       `json:"receiver,omitempty"` // optional receiver, if this is actually a struct method not a function
 	Name        string       `json:"name,omitempty"`
 	Params      []*Param     `json:"params,omitempty"`
 	Returns     []*Param     `json:"returns,omitempty"`
@@ -114,11 +116,21 @@ func ParseMetaModel(pkg *parser.Package) (*Package, error) {
 		Name:       pkg.Name(),
 		Doc:        pkg.Doc().Doc,
 	}
+
 	ifaces, err := parseInterfaces(pkg)
 	if err != nil {
 		return nil, err
 	}
 	res.Interfaces = ifaces
+	_ = ifaces
+
+	structs, err := parseStructs(pkg)
+	if err != nil {
+		return nil, err
+	}
+	res.Structs = structs
+	_ = structs
+
 	for _, p := range pkg.Packages() {
 		pkg, err := ParseMetaModel(p)
 		if err != nil {
@@ -126,14 +138,38 @@ func ParseMetaModel(pkg *parser.Package) (*Package, error) {
 		}
 		res.Packages = append(res.Packages, pkg)
 	}
+
 	return res, nil
 }
 
+// A TypeDecl (TypeDeclaration) refers to a type definition somewhere else. A declaration may contain other type
+// parameter for generics (currently only slices, maps and channels), which itself may be generic. Also in a
+// parameter definition variable (ellipsis) is allowed. What makes it even more complex are length attributes for arrays
+// and an variable amount of pointer indirection (stars).
 type TypeDecl struct {
 	ImportPath string     `json:"importPath,omitempty"`
-	Identifier string     `json:"identifier,omitempty"` // slices and arrays are [], maps are map, look at the type Params for details
+	Identifier string     `json:"identifier,omitempty"` // slices and arrays are [], maps are map, look at the type Params for details. Func is a hard one and is describes in Func
 	Stars      int        `json:"stars,omitempty"`
 	Var        bool       `json:"var,omitempty"`
 	Params     []TypeDecl `json:"params,omitempty"` // generics: currently only slices [], arrays [x] and maps map[a]b are supported
 	Length     int        `json:"length,omitempty"` // parsed array length or -1 for a slice, 0 if not applicable
+	Func       *Method    `json:"func,omitempty"`   // only non-nil if identifier is "func"
+}
+
+type Struct struct {
+	Doc         string       `json:"doc,omitempty"`
+	Annotations []Annotation `json:"annotations,omitempty"`
+	ImportPath  string       `json:"importPath,omitempty"`
+	Name        string       `json:"name,omitempty"`
+	Fields      []Field      `json:"fields,omitempty"`
+	Methods     []*Method    `json:"methods,omitempty"`   // Methods with a receiver
+	Factories   []*Method    `json:"factories,omitempty"` // factory methods, returning the struct
+}
+
+type Field struct {
+	Doc         string       `json:"doc,omitempty"`
+	Annotations []Annotation `json:"annotations,omitempty"`
+	Name        string
+	Type        TypeDecl          `json:"type,omitempty"`
+	Tags        map[string]string `json:"tags,omitempty"`
 }

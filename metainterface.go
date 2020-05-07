@@ -22,12 +22,16 @@ func parseInterfaces(pkg *parser.Package) ([]*Interface, error) {
 							ImportPath: file.Parent().ImportPath(),
 							Name:       t.Name.Name,
 						}
+						/* it is fine to be incomplete, happens for any type declared outside of the fileset
 						if i.Incomplete {
 							err = newParseErr(file, t.Pos(), fmt.Errorf("%s.%s is incomplete", iface.ImportPath, iface.Name))
 							return false
-						}
+						}*/
 
-						iface.Methods = parseMethods(file, i.Methods.List)
+						iface.Methods, err = parseMethods(file, i.Methods.List)
+						if err != nil {
+							return false
+						}
 						annotations, e := parser.ParseAnnotations(iface.Doc)
 						if e != nil {
 							err = newParseErr(file, t.Pos(), e)

@@ -13,7 +13,7 @@ func TestParseAnnotation(t *testing.T) {
 		wantErr bool
 	}{
 
-		{"valid-0", `@a.b.c("Text":"hello", "Num":5, "Float":3.4, "Enabled":false)`,
+		{"valid-0", `@a.b.c("Text":"hello", "Num":5, "Float":3.4, "Enabled":false)//hello`,
 			Annotation{
 				Name:   "a.b.c",
 				Values: map[string]interface{}{"Text": "hello", "Num": float64(5), "Float": 3.4, "Enabled": false},

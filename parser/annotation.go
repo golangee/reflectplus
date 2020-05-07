@@ -73,7 +73,7 @@ func ParseAnnotation(line string) (Annotation, error) {
 	commentIdx := strings.Index(line, "//")
 	if commentIdx >= 0 {
 		cleanLine = cleanLine[0:commentIdx]
-		annotation.Doc = strings.TrimSpace(cleanLine[commentIdx:])
+		annotation.Doc = strings.TrimSpace(line[commentIdx+2:])
 	}
 
 	cleanLine = strings.TrimSpace(cleanLine)

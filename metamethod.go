@@ -7,60 +7,79 @@ import (
 	"strconv"
 )
 
-func parseMethods(ctx *parser.File, methods []*ast.Field) []*Method {
+func parseMethods(ctx *parser.File, methods []*ast.Field) ([]*Method, error) {
 	var res []*Method
 	for _, m := range methods {
 		if len(m.Names) == 0 || !m.Names[0].IsExported() {
 			continue
 		}
-		method := &Method{
-			Name: m.Names[0].Name,
-			Doc:  m.Doc.Text(),
-		}
 		switch f := m.Type.(type) {
 		case *ast.FuncType:
-			for _, p := range f.Params.List {
-				typeDec := typeDeclOf(ctx, p.Type)
-
-				// go allows anonymous parameters...
-				if len(p.Names) == 0 {
-					param := &Param{
-						Doc:  p.Doc.Text(),
-						Type: typeDec,
-					}
-					method.Params = append(method.Params, param)
-				}
-
-				// ... and multiple names per type declaration
-				for _, name := range p.Names {
-					param := &Param{
-						Doc:  p.Doc.Text(),
-						Type: typeDec,
-						Name: name.Name,
-					}
-					method.Params = append(method.Params, param)
-				}
+			method, err := newMethod(ctx, m.Doc.Text(), m.Names[0].Name, f)
+			if err != nil {
+				return nil, err
 			}
-
-			if f.Results != nil {
-				for _, p := range f.Results.List {
-					result := &Param{
-						Doc: p.Doc.Text(),
-					}
-					// go allows anonymous and named return parameters
-					if len(p.Names) > 0 {
-						result.Name = p.Names[0].Name
-					}
-					result.Type = typeDeclOf(ctx, p.Type)
-					method.Returns = append(method.Returns, result)
-				}
-			}
-
+			res = append(res, &method)
 		}
 
-		res = append(res, method)
 	}
-	return res
+	return res, nil
+}
+
+func newMethod(ctx *parser.File, doc string, name string, ftype *ast.FuncType) (Method, error) {
+	method := parseMethod(ctx, ftype)
+	method.Name = name
+	method.Doc = doc
+
+	annotations, e := parser.ParseAnnotations(method.Doc)
+	if e != nil {
+		return method, newParseErr(ctx, ftype.Pos(), e)
+	}
+	method.Annotations = wrapAnnotations(annotations)
+	return method, nil
+}
+
+func parseMethod(ctx *parser.File, f *ast.FuncType) Method {
+	method := Method{}
+
+	for _, p := range f.Params.List {
+		typeDec := typeDeclOf(ctx, p.Type)
+
+		// go allows anonymous parameters...
+		if len(p.Names) == 0 {
+			param := &Param{
+				Doc:  p.Doc.Text(),
+				Type: typeDec,
+			}
+			method.Params = append(method.Params, param)
+		}
+
+		// ... and multiple names per type declaration
+		for _, name := range p.Names {
+			param := &Param{
+				Doc:  p.Doc.Text(),
+				Type: typeDec,
+				Name: name.Name,
+			}
+			method.Params = append(method.Params, param)
+		}
+	}
+
+	if f.Results != nil {
+		for _, p := range f.Results.List {
+			result := &Param{
+				Doc: p.Doc.Text(),
+			}
+			// go allows anonymous and named return parameters
+			if len(p.Names) > 0 {
+				result.Name = p.Names[0].Name
+			}
+			result.Type = typeDeclOf(ctx, p.Type)
+			method.Returns = append(method.Returns, result)
+		}
+	}
+
+	return method
 }
 
 func typeDeclOf(ctx *parser.File, exp ast.Expr) TypeDecl {
@@ -114,6 +133,10 @@ func typeDeclOf(ctx *parser.File, exp ast.Expr) TypeDecl {
 	case *ast.ChanType:
 		val := typeDeclOf(ctx, t.Value)
 		return TypeDecl{Identifier: "chan", Params: []TypeDecl{val}}
+	case *ast.FuncType:
+		method := parseMethod(ctx, t)
+		return TypeDecl{Identifier: "func", Func: &method}
 	}
+
 	panic(reflect.TypeOf(exp))
 }
