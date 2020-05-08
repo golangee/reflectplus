@@ -21,6 +21,7 @@ func parseStructs(pkg *parser.Package) ([]*Struct, error) {
 							Doc:        file.Parent().TypeDoc(t.Name.Name).Doc,
 							ImportPath: file.Parent().ImportPath(),
 							Name:       t.Name.Name,
+							Pos:        posOf(file, i.Pos()),
 						}
 						/* it is fine to be incomplete, happens for any type declared outside of the fileset
 						if i.Incomplete {

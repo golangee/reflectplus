@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"unicode"
 )
 
 type Package struct {
@@ -89,6 +90,24 @@ func (p *Package) TypeDoc(name string) *doc.Type {
 	for _, typ := range p.doc.Types {
 		if typ.Name == name {
 			return typ
+		}
+	}
+	return nil
+}
+
+func (p *Package) FuncDoc(name string) *doc.Func {
+	for _, f := range p.doc.Funcs {
+		if f.Name == name {
+			return f
+		}
+	}
+
+	// look at constructors
+	for _, typ := range p.doc.Types {
+		for _, f := range typ.Funcs {
+			if f.Name == name {
+				return f
+			}
 		}
 	}
 	return nil
@@ -195,6 +214,20 @@ func ParseFile(parent *Package, fname string) (*File, error) {
 
 func (f *File) Filename() string {
 	return f.fileName
+}
+
+func (f *File) ResolveIdentifierImportName(name string) string {
+	if len(name) == 0 {
+		return ""
+	}
+
+	// there are no uppercase go types
+	if unicode.IsUpper(rune(name[0])) {
+		return f.Parent().ImportPath()
+	}
+
+	// TODO because we do not support private types in exported types, we just assume stdlib type
+	return ""
 }
 
 func (f *File) ResolveImportName(name string) string {

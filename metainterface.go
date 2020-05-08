@@ -21,6 +21,7 @@ func parseInterfaces(pkg *parser.Package) ([]*Interface, error) {
 							Doc:        file.Parent().TypeDoc(t.Name.Name).Doc,
 							ImportPath: file.Parent().ImportPath(),
 							Name:       t.Name.Name,
+							Pos:        posOf(file, i.Pos()),
 						}
 						/* it is fine to be incomplete, happens for any type declared outside of the fileset
 						if i.Incomplete {
@@ -47,6 +48,11 @@ func parseInterfaces(pkg *parser.Package) ([]*Interface, error) {
 	}
 
 	return res, err
+}
+
+func posOf(file *parser.File, pos token.Pos) Pos {
+	fsetPos := file.Parent().FileSet().Position(pos)
+	return Pos{Filename: fsetPos.Filename, Line: fsetPos.Line}
 }
 
 func newParseErr(file *parser.File, pos token.Pos, err error) error {

@@ -7,6 +7,30 @@ import (
 	"strconv"
 )
 
+func parsePackageFuncs(pkg *parser.Package) ([]Method, error) {
+	var res []Method
+	var err error
+	for _, file := range pkg.Files() {
+		ast.Inspect(file.Node(), func(n ast.Node) bool {
+			switch t := n.(type) {
+			case *ast.FuncDecl:
+				if t.Recv != nil || !t.Name.IsExported() {
+					return true
+				}
+				doc := pkg.FuncDoc(t.Name.Name)
+				method, e := newMethod(file, doc.Doc, t.Name.Name, t.Type)
+				if e != nil {
+					err = e
+					return false
+				}
+				res = append(res, method)
+			}
+			return true
+		})
+	}
+	return res, err
+}
+
 func parseMethods(ctx *parser.File, methods []*ast.Field) ([]*Method, error) {
 	var res []*Method
 	for _, m := range methods {
@@ -79,13 +103,15 @@ func parseMethod(ctx *parser.File, f *ast.FuncType) Method {
 		}
 	}
 
+	method.Pos = posOf(ctx, f.Pos())
+
 	return method
 }
 
 func typeDeclOf(ctx *parser.File, exp ast.Expr) TypeDecl {
 	switch t := exp.(type) {
 	case *ast.Ident:
-		return TypeDecl{Identifier: t.Name}
+		return TypeDecl{Identifier: t.Name,ImportPath: ctx.ResolveIdentifierImportName(t.Name)}
 	case *ast.SelectorExpr:
 		namedImportPath := t.X.(*ast.Ident).Name
 		namedImportPath = ctx.ResolveImportName(namedImportPath)
