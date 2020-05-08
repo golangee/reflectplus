@@ -22,6 +22,16 @@ func Packages() []Package {
 	return packages
 }
 
+func Interfaces() []Interface {
+	var res []Interface
+	for _, p := range packages {
+		for _, iface := range p.AllInterfaces() {
+			res = append(res, iface)
+		}
+	}
+	return res
+}
+
 func FindInterface(importPath string, name string) *Interface {
 	for _, p := range packages {
 		for _, iface := range p.AllInterfaces() {

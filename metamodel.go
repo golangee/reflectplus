@@ -46,6 +46,17 @@ func (p *Package) AllInterfaces() []Interface {
 	return res
 }
 
+type Annotations []Annotation
+
+func (s Annotations) Has(name string) bool {
+	for _, a := range s {
+		if a.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
 // An Annotation is actually an @-prefixed-named json object one-liner
 type Annotation struct {
 	Doc    string
@@ -136,6 +147,16 @@ type Method struct {
 	Pos         Pos          `json:"pos,omitempty"`
 }
 
+// AnnotationByName asserts the existence of the named annotation and panics otherwise
+func (m Method) AnnotationByName(n string) Annotation {
+	for _, a := range m.Annotations {
+		if a.Name == n {
+			return a
+		}
+	}
+	panic(m.Pos.ideString() + " annotation '" + n + "' not found")
+}
+
 type Param struct {
 	Doc  string   `json:"doc,omitempty"`
 	Name string   `json:"name,omitempty"`
@@ -218,4 +239,8 @@ type Field struct {
 type Pos struct {
 	Filename string `json:"filename,omitempty"`
 	Line     int    `json:"line,omitempty"`
+}
+
+func (p Pos) ideString() string {
+	return p.Filename + ":" + strconv.Itoa(p.Line)
 }

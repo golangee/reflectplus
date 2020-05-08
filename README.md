@@ -5,7 +5,7 @@ for code generation.
 
 Using this library, you can work around the following issues:
 * inspect function parameter names: https://github.com/golang/go/issues/12384
-* create interface proxy at runtime: https://github.com/golang/go/issues/16522
+* create interface proxy at runtime: https://github.com/golang/go/issues/16522 and https://github.com/golang/go/issues/4146
 * annotation support (comments): https://github.com/golang/go/issues/36669 and https://stackoverflow.com/questions/37488509/how-to-get-annotation-of-go-language-function
 * discover package types and funcs: https://stackoverflow.com/questions/32132064/how-to-discover-all-package-types-at-runtime
 
