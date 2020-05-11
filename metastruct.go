@@ -88,7 +88,7 @@ func parseStructs(pkg *parser.Package) ([]*Struct, error) {
 							err = newParseErr(file, t.Pos(), e)
 							return false
 						}
-						strct.Annotations = wrapAnnotations(annotations)
+						strct.Annotations = wrapAnnotations(strct.Pos, annotations)
 						res = append(res, strct)
 					}
 				}
@@ -106,13 +106,14 @@ func parseField(ctx *parser.File, f *ast.Field, name string) (Field, error) {
 		Annotations: nil,
 		Name:        name,
 		Type:        typeDeclOf(ctx, f.Type),
+		Pos:         posOf(ctx, f.Pos()),
 	}
 
 	annotations, e := parser.ParseAnnotations(field.Doc)
 	if e != nil {
 		return field, newParseErr(ctx, f.Pos(), e)
 	}
-	field.Annotations = wrapAnnotations(annotations)
+	field.Annotations = wrapAnnotations(field.Pos, annotations)
 
 	if f.Tag != nil {
 		tagStr := f.Tag.Value

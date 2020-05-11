@@ -75,10 +75,19 @@ func generateSrcProxy(w *goGenFile, i Interface) {
 			}
 		}
 		w.Printf(")\n")
+
+		// write result types and null checks to comply with spec, see https://golang.org/ref/spec#Type_assertions
+		for i, r := range m.Returns {
+			w.Printf("var _r%d %s\n", i, typeDeclToGo(w, r.Type))
+			w.Printf("if res[%d] != nil{\n", i)
+			w.Printf("_r%d = res[%d].(%s)\n", i, i, typeDeclToGo(w, r.Type))
+			w.Printf("}\n")
+		}
+
 		if len(m.Returns) > 0 {
 			w.Printf("return ")
-			for i, r := range m.Returns {
-				w.Printf("res[%d].(%s)", i, typeDeclToGo(w, r.Type))
+			for i, _ := range m.Returns {
+				w.Printf("_r%d", i)
 				if i < len(m.Returns)-1 {
 					w.Printf(",")
 				}
@@ -109,7 +118,7 @@ func typesafeName(importPath string) string {
 func typeDeclToGo(w *goGenFile, t TypeDecl) string {
 	sb := &strings.Builder{}
 
-	if t.Var{
+	if t.Var {
 		sb.WriteString("...")
 	}
 

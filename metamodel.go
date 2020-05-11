@@ -59,10 +59,15 @@ func (s Annotations) Has(name string) bool {
 
 // An Annotation is actually an @-prefixed-named json object one-liner
 type Annotation struct {
-	Doc    string
-	Text   string
-	Name   string
-	Values map[string]interface{}
+	Doc    string                 `json:"doc,omitempty"`
+	Text   string                 `json:"text,omitempty"`
+	Name   string                 `json:"name,omitempty"`
+	Values map[string]interface{} `json:"values,omitempty"`
+	Pos    Pos                    `json:"pos,omitempty"`
+}
+
+func (a Annotation) Position() Pos {
+	return a.Pos
 }
 
 func (a Annotation) AsString(key string) string {
@@ -82,14 +87,31 @@ func (a Annotation) AsString(key string) string {
 	return fmt.Sprintf("%v", v)
 }
 
-func (a Annotation) AsFloat(key string) float64 {
+func (a Annotation) MustAsString(key string) string {
 	if a.Values == nil {
-		return 0
+		panic(a.Pos.ideString() + " key '" + key + "' not found")
 	}
 
 	v := a.Values[key]
 	if v == nil {
-		return 0
+		panic(a.Pos.ideString() + " key '" + key + "' not found")
+	}
+
+	if s, ok := v.(string); ok {
+		return s
+	}
+
+	return fmt.Sprintf("%v", v)
+}
+
+func (a Annotation) MustAsFloat(key string) float64 {
+	if a.Values == nil {
+		panic(a.Pos.ideString() + " key '" + key + "' not found")
+	}
+
+	v := a.Values[key]
+	if v == nil {
+		panic(a.Pos.ideString() + " key '" + key + "' not found")
 	}
 
 	if s, ok := v.(float64); ok {
@@ -97,18 +119,21 @@ func (a Annotation) AsFloat(key string) float64 {
 	}
 
 	s := a.AsString(key)
-	f, _ := strconv.ParseFloat(s, 64)
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		panic(a.Pos.ideString() + " value of '" + key + "' incompatible: " + err.Error())
+	}
 	return f
 }
 
-func (a Annotation) AsBool(key string) bool {
+func (a Annotation) MustAsBool(key string) bool {
 	if a.Values == nil {
-		return false
+		panic(a.Pos.ideString() + " key '" + key + "' not found")
 	}
 
 	v := a.Values[key]
 	if v == nil {
-		return false
+		panic(a.Pos.ideString() + " key '" + key + "' not found")
 	}
 
 	if s, ok := v.(bool); ok {
@@ -116,7 +141,10 @@ func (a Annotation) AsBool(key string) bool {
 	}
 
 	s := a.AsString(key)
-	b, _ := strconv.ParseBool(s)
+	b, err := strconv.ParseBool(s)
+	if err != nil {
+		panic(a.Pos.ideString() + " value of '" + key + "' incompatible: " + err.Error())
+	}
 	return b
 }
 
@@ -125,7 +153,7 @@ type Interface struct {
 	Annotations []Annotation `json:"annotations,omitempty"`
 	ImportPath  string       `json:"importPath,omitempty"`
 	Name        string       `json:"name,omitempty"`
-	Methods     []*Method    `json:"methods,omitempty"`
+	Methods     []Method     `json:"methods,omitempty"`
 	Pos         Pos          `json:"pos,omitempty"`
 }
 
@@ -147,8 +175,12 @@ type Method struct {
 	Pos         Pos          `json:"pos,omitempty"`
 }
 
+func (m Method) Position() Pos {
+	return m.Pos
+}
+
 // AnnotationByName asserts the existence of the named annotation and panics otherwise
-func (m Method) AnnotationByName(n string) Annotation {
+func (m Method) MustAnnotationByName(n string) Annotation {
 	for _, a := range m.Annotations {
 		if a.Name == n {
 			return a
@@ -227,6 +259,10 @@ type Struct struct {
 	Pos         Pos          `json:"pos,omitempty"`
 }
 
+func (s Struct) Position() Pos {
+	return s.Pos
+}
+
 type Field struct {
 	Doc         string       `json:"doc,omitempty"`
 	Annotations []Annotation `json:"annotations,omitempty"`
@@ -236,6 +272,10 @@ type Field struct {
 	Pos         Pos               `json:"pos,omitempty"`
 }
 
+func (f Field) Position() Pos {
+	return f.Pos
+}
+
 type Pos struct {
 	Filename string `json:"filename,omitempty"`
 	Line     int    `json:"line,omitempty"`
@@ -243,4 +283,8 @@ type Pos struct {
 
 func (p Pos) ideString() string {
 	return p.Filename + ":" + strconv.Itoa(p.Line)
+}
+
+type Positional interface {
+	Position() Pos
 }

@@ -31,8 +31,8 @@ func parsePackageFuncs(pkg *parser.Package) ([]Method, error) {
 	return res, err
 }
 
-func parseMethods(ctx *parser.File, methods []*ast.Field) ([]*Method, error) {
-	var res []*Method
+func parseMethods(ctx *parser.File, methods []*ast.Field) ([]Method, error) {
+	var res []Method
 	for _, m := range methods {
 		if len(m.Names) == 0 || !m.Names[0].IsExported() {
 			continue
@@ -43,7 +43,7 @@ func parseMethods(ctx *parser.File, methods []*ast.Field) ([]*Method, error) {
 			if err != nil {
 				return nil, err
 			}
-			res = append(res, &method)
+			res = append(res, method)
 		}
 
 	}
@@ -59,7 +59,7 @@ func newMethod(ctx *parser.File, doc string, name string, ftype *ast.FuncType) (
 	if e != nil {
 		return method, newParseErr(ctx, ftype.Pos(), e)
 	}
-	method.Annotations = wrapAnnotations(annotations)
+	method.Annotations = wrapAnnotations(method.Pos, annotations)
 	return method, nil
 }
 
@@ -111,7 +111,7 @@ func parseMethod(ctx *parser.File, f *ast.FuncType) Method {
 func typeDeclOf(ctx *parser.File, exp ast.Expr) TypeDecl {
 	switch t := exp.(type) {
 	case *ast.Ident:
-		return TypeDecl{Identifier: t.Name,ImportPath: ctx.ResolveIdentifierImportName(t.Name)}
+		return TypeDecl{Identifier: t.Name, ImportPath: ctx.ResolveIdentifierImportName(t.Name)}
 	case *ast.SelectorExpr:
 		namedImportPath := t.X.(*ast.Ident).Name
 		namedImportPath = ctx.ResolveImportName(namedImportPath)

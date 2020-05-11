@@ -36,7 +36,7 @@ func (w *goGenFile) Import(importPath string) string {
 		if i > 1 {
 			newName += strconv.Itoa(i)
 		}
-		if !w.HasImport(newName) {
+		if !w.HasImportAlias(newName) {
 			w.namedImports[origImportPath(importPath)] = newImportName(newName)
 			return newName
 		}
@@ -55,6 +55,16 @@ func (w *goGenFile) ImportName(importPath string, name string) string {
 func (w *goGenFile) HasImport(importPath string) bool {
 	_, has := w.namedImports[origImportPath(importPath)]
 	return has
+}
+
+func (w *goGenFile) HasImportAlias(importPath string) bool {
+	alias := lastName(importPath)
+	for _, v := range w.namedImports {
+		if string(v) == alias {
+			return true
+		}
+	}
+	return false
 }
 
 func (w *goGenFile) Indent(i int) {

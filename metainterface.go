@@ -38,7 +38,7 @@ func parseInterfaces(pkg *parser.Package) ([]*Interface, error) {
 							err = newParseErr(file, t.Pos(), e)
 							return false
 						}
-						iface.Annotations = wrapAnnotations(annotations)
+						iface.Annotations = wrapAnnotations(iface.Pos, annotations)
 						res = append(res, iface)
 					}
 				}
@@ -59,11 +59,17 @@ func newParseErr(file *parser.File, pos token.Pos, err error) error {
 	return fmt.Errorf("%s:%d : %w", file.Filename(), file.Parent().FileSet().Position(pos).Line, err)
 }
 
-func wrapAnnotations(annotations []parser.Annotation) []Annotation {
+func wrapAnnotations(pos Pos, annotations []parser.Annotation) []Annotation {
 	if len(annotations) > 0 {
 		tmp := make([]Annotation, len(annotations))
 		for i, a := range annotations {
-			tmp[i] = Annotation(a)
+			tmp[i] = Annotation{
+				Doc:    a.Doc,
+				Text:   a.Text,
+				Name:   a.Name,
+				Values: a.Values,
+				Pos:    pos,
+			}
 		}
 		return tmp
 	}
