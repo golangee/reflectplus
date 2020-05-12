@@ -46,6 +46,17 @@ func (p *Package) AllInterfaces() []Interface {
 	return res
 }
 
+func (p *Package) AllStructs() []Struct {
+	var res []Struct
+	for _, strct := range p.Structs {
+		res = append(res, *strct)
+	}
+	for _, pkg := range p.Packages {
+		res = append(res, pkg.AllStructs()...)
+	}
+	return res
+}
+
 type Annotations []Annotation
 
 func (s Annotations) Has(name string) bool {

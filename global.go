@@ -1,8 +1,12 @@
 package reflectplus
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"reflect"
+)
 
 var packages []Package
+var typesByName map[string]reflect.Type = make(map[string]reflect.Type)
 
 func AddPackage(pkg Package) {
 	packages = append(packages, pkg)
@@ -22,6 +26,15 @@ func Packages() []Package {
 	return packages
 }
 
+// FindType returns the type or nil
+func FindType(importPath string, name string) reflect.Type {
+	return typesByName[importPath+"#"+name]
+}
+
+func AddType(importPath string, name string, p reflect.Type) {
+	typesByName[importPath+"#"+name] = p
+}
+
 func Interfaces() []Interface {
 	var res []Interface
 	for _, p := range packages {
@@ -35,6 +48,17 @@ func Interfaces() []Interface {
 func FindInterface(importPath string, name string) *Interface {
 	for _, p := range packages {
 		for _, iface := range p.AllInterfaces() {
+			if iface.ImportPath == importPath && iface.Name == name {
+				return &iface
+			}
+		}
+	}
+	return nil
+}
+
+func FindStruct(importPath string, name string) *Struct {
+	for _, p := range packages {
+		for _, iface := range p.AllStructs() {
 			if iface.ImportPath == importPath && iface.Name == name {
 				return &iface
 			}

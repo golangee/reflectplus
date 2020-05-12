@@ -69,6 +69,8 @@ func writeInit(w *goGenFile, pkg Package) {
 	w.Printf("panic(err)\n")
 	w.Printf("}\n")
 
+	// write golang reflect connector
+	writeTypeOfRegistrations(w, pkg)
 	w.Printf("}\n")
 }
 
@@ -79,4 +81,16 @@ func writeReflectionData(w *goGenFile, pkg Package) {
 	}
 	// this way we avoid ugly escaping, however we should emit structs directly instead
 	w.Printf("var metaData,_ = %s.DecodeString(\"%s\")", w.ImportName("encoding/base64", "StdEncoding"), base64.StdEncoding.EncodeToString(dat))
+}
+
+func writeTypeOfRegistrations(w *goGenFile, pkg Package) {
+	for _, s := range pkg.AllStructs() {
+		if strings.HasSuffix(s.ImportPath, "main") { //TODO this is wrong any way, importpath is the dir name, not the actual parsed package name
+			continue //TODO  avoid import "xyz" is a program, not an importable package
+		}
+		typeName := w.ImportName(s.ImportPath, s.Name)
+		add := w.ImportName("github.com/worldiety/reflectplus", "AddType")
+		refl := w.ImportName("reflect", "TypeOf")
+		w.Printf("%s(\"%s\",\"%s\",%s(%s{}))\n", add, s.ImportPath, s.Name, refl, typeName)
+	}
 }

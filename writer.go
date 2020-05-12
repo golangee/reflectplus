@@ -106,7 +106,7 @@ func (w *goGenFile) String() string {
 func (w *goGenFile) FormatString() string {
 	b, err := format.Source([]byte(w.String()))
 	if err != nil {
-		fmt.Println(w.String())
+		fmt.Println(enumerateText(w.String()))
 		panic(err)
 	}
 	return string(b)
@@ -119,4 +119,13 @@ func lastName(text string) string {
 		pkgname = tokens[len(tokens)-1]
 	}
 	return pkgname
+}
+
+func enumerateText(text string) string {
+	sb := &strings.Builder{}
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		sb.WriteString(strconv.Itoa(i+1) + ": " + line + "\n")
+	}
+	return sb.String()
 }

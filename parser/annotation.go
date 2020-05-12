@@ -112,21 +112,43 @@ func ParseAnnotation(line string) (Annotation, error) {
 	}
 
 	args := strings.TrimSpace(cleanLine[openArg+1 : closeArg])
-	if !strings.Contains(args, ":") && len(args) > 0 {
-		args = `{"value":` + args + "}"
-	}
+
+	// missing {} can be detected easily
 	if !strings.HasPrefix(args, "{") {
-		args = "{" + args + "}"
+		// try 0: correct key/value but just without braces
+		tmp := "{" + args + "}"
+		values, err1 := parseValues(tmp, line)
+		if err1 != nil {
+			// try 1: just a string, without key/value
+			tmp := `{"value":` + args + "}"
+			values, err2 := parseValues(tmp, line)
+			if err2 != nil {
+				// nothing we can do
+				return annotation, err1
+			}
+			annotation.Values = values
+		} else {
+			annotation.Values = values
+		}
+	} else {
+		// otherwise just try to parse without processing
+		values, err := parseValues(args, line)
+		if err != nil {
+			return annotation, err
+		}
+		annotation.Values = values
 	}
 
+	return annotation, nil
+}
+
+func parseValues(args, line string) (map[string]interface{}, error) {
 	values := make(map[string]interface{})
 	err := json.Unmarshal([]byte(args), &values)
 	if err != nil {
-		return annotation, &AnnotationParserError{line, "annotation arguments are invalid: " + err.Error()}
+		return nil, &AnnotationParserError{line, "annotation arguments are invalid: " + err.Error()}
 	}
-	annotation.Values = values
-
-	return annotation, nil
+	return values, nil
 }
 
 // ParseAnnotations tries to parse all annotations from the given text and only returns ParserErrors

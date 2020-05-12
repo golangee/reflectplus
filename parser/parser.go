@@ -39,11 +39,18 @@ func ParsePackage(parent *Package, dirname string) (*Package, error) {
 		if err != nil {
 			return nil, err
 		}
+		if len(modInfo.ImportPath) == 0 {
+			return nil, fmt.Errorf("import path for package '%s' is empty", dirname)
+		}
 		p.modName = modInfo.ImportPath
 	}
 	lastPackageName := ""
 	for _, file := range files {
 		if strings.HasSuffix(file.Name(), ".go") && file.Mode().IsRegular() {
+			if file.Name() == "reflect.gen.go" {
+				// do not eat our own dog food, that would cause generated headaches
+				continue
+			}
 			fname := filepath.Join(dirname, file.Name())
 			srcFile, err := ParseFile(p, fname)
 			if err != nil {
@@ -276,8 +283,7 @@ type goModInfo struct {
 }
 
 func goList(dir string) (goModInfo, error) {
-
-	cmd := exec.Command("go", "list", "-json")
+	cmd := exec.Command("go", "list", "-e", "-json")
 	cmd.Dir = dir
 	cmd.Env = os.Environ()
 	b, err := cmd.CombinedOutput()
@@ -287,7 +293,7 @@ func goList(dir string) (goModInfo, error) {
 	var res goModInfo
 	err = json.Unmarshal(b, &res)
 	if err != nil {
-		return goModInfo{}, err
+		return goModInfo{}, fmt.Errorf("unable to parse 'go list' result ('%s'):%w", string(b), err)
 	}
 	return res, nil
 }

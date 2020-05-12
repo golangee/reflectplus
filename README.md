@@ -8,6 +8,7 @@ Using this library, you can work around the following issues:
 * create interface proxy at runtime: https://github.com/golang/go/issues/16522 and https://github.com/golang/go/issues/4146
 * annotation support (comments): https://github.com/golang/go/issues/36669 and https://stackoverflow.com/questions/37488509/how-to-get-annotation-of-go-language-function
 * discover package types and funcs: https://stackoverflow.com/questions/32132064/how-to-discover-all-package-types-at-runtime
+* get reflect.Type by name: https://stackoverflow.com/questions/40879748/golang-reflect-get-type-representation-from-name
 
 related work:
 * https://github.com/MarcGrol/golangAnnotations, but provides only a hard coded set of annotations and
@@ -43,7 +44,6 @@ type or function. The following notations are allowed:
 // @Repo({"value":5})
 // @Repo(5) // implicitly wrapped into {"value": 5}
 // @Repo("text") // implicitly wrapped into {"value": "text"}
-// // @Repo("te:xt") invalid notation for auto detection
 // @Repo("value":"te:xt") // this is fine 
 // @Repo("values":["can","be","multiple"])
 // @Repo("anyKey":"anyValue","num":5,"bool":true,"nested":{"care":{"of":["your", "head"]}})
