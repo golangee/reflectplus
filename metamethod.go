@@ -71,7 +71,7 @@ func parseMethod(ctx *parser.File, f *ast.FuncType) Method {
 
 		// go allows anonymous parameters...
 		if len(p.Names) == 0 {
-			param := &Param{
+			param := Param{
 				Doc:  p.Doc.Text(),
 				Type: typeDec,
 			}
@@ -80,7 +80,7 @@ func parseMethod(ctx *parser.File, f *ast.FuncType) Method {
 
 		// ... and multiple names per type declaration
 		for _, name := range p.Names {
-			param := &Param{
+			param := Param{
 				Doc:  p.Doc.Text(),
 				Type: typeDec,
 				Name: name.Name,
@@ -91,7 +91,7 @@ func parseMethod(ctx *parser.File, f *ast.FuncType) Method {
 
 	if f.Results != nil {
 		for _, p := range f.Results.List {
-			result := &Param{
+			result := Param{
 				Doc: p.Doc.Text(),
 			}
 			// go allows anonymous and named return parameters

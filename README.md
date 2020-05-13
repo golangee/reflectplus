@@ -9,6 +9,7 @@ Using this library, you can work around the following issues:
 * annotation support (comments): https://github.com/golang/go/issues/36669 and https://stackoverflow.com/questions/37488509/how-to-get-annotation-of-go-language-function
 * discover package types and funcs: https://stackoverflow.com/questions/32132064/how-to-discover-all-package-types-at-runtime
 * get reflect.Type by name: https://stackoverflow.com/questions/40879748/golang-reflect-get-type-representation-from-name
+* get method or function parameter names: https://stackoverflow.com/questions/31377433/getting-method-parameter-names
 
 related work:
 * https://github.com/MarcGrol/golangAnnotations, but provides only a hard coded set of annotations and

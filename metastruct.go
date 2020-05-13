@@ -67,7 +67,7 @@ func parseStructs(pkg *parser.Package) ([]*Struct, error) {
 							}
 
 							method.Receiver = receiver
-							strct.Methods = append(strct.Methods, &method)
+							strct.Methods = append(strct.Methods, method)
 						}
 
 						for _, m := range docType.Funcs {
@@ -76,7 +76,7 @@ func parseStructs(pkg *parser.Package) ([]*Struct, error) {
 								err = e
 								return false
 							}
-							strct.Factories = append(strct.Factories, &method)
+							strct.Factories = append(strct.Factories, method)
 						}
 
 						//iface.Methods, err = parseMethods(file, i.Methods.List)

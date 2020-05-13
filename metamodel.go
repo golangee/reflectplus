@@ -98,6 +98,11 @@ func (a Annotation) AsString(key string) string {
 	return fmt.Sprintf("%v", v)
 }
 
+// Value returns the value for the "value"-key or the empty string
+func (a Annotation) Value() string {
+	return a.AsString("value")
+}
+
 func (a Annotation) MustAsString(key string) string {
 	if a.Values == nil {
 		panic(a.Pos.ideString() + " key '" + key + "' not found")
@@ -181,13 +186,41 @@ type Method struct {
 	Annotations []Annotation `json:"annotations,omitempty"`
 	Receiver    *Param       `json:"receiver,omitempty"` // optional receiver, if this is actually a struct method not a function
 	Name        string       `json:"name,omitempty"`
-	Params      []*Param     `json:"params,omitempty"`
-	Returns     []*Param     `json:"returns,omitempty"`
+	Params      []Param      `json:"params,omitempty"`
+	Returns     []Param      `json:"returns,omitempty"`
 	Pos         Pos          `json:"pos,omitempty"`
 }
 
 func (m Method) Position() Pos {
 	return m.Pos
+}
+
+func (m Method) ParamByName(n string) *Param {
+	for _, p := range m.Params {
+		if p.Name == n {
+			return &p
+		}
+	}
+	return nil
+}
+
+func (m Method) ParamAndIndexByName(n string) (*Param, int) {
+	for i, p := range m.Params {
+		if p.Name == n {
+			return &p, i
+		}
+	}
+	return nil, -1
+}
+
+func (m Method) FindAnnotations(name string) []Annotation {
+	var r []Annotation
+	for _, a := range m.Annotations {
+		if a.Name == name {
+			r = append(r, a)
+		}
+	}
+	return r
 }
 
 // AnnotationByName asserts the existence of the named annotation and panics otherwise
@@ -265,9 +298,19 @@ type Struct struct {
 	ImportPath  string       `json:"importPath,omitempty"`
 	Name        string       `json:"name,omitempty"`
 	Fields      []Field      `json:"fields,omitempty"`
-	Methods     []*Method    `json:"methods,omitempty"`   // Methods with a receiver
-	Factories   []*Method    `json:"factories,omitempty"` // factory methods, returning the struct
+	Methods     []Method     `json:"methods,omitempty"`   // Methods with a receiver
+	Factories   []Method     `json:"factories,omitempty"` // factory methods, returning the struct
 	Pos         Pos          `json:"pos,omitempty"`
+}
+
+func (s Struct) FindAnnotations(name string) []Annotation {
+	var r []Annotation
+	for _, a := range s.Annotations {
+		if a.Name == name {
+			r = append(r, a)
+		}
+	}
+	return r
 }
 
 func (s Struct) Position() Pos {

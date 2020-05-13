@@ -3,6 +3,7 @@ package reflectplus
 import (
 	"encoding/json"
 	"reflect"
+	"strings"
 )
 
 var packages []Package
@@ -33,6 +34,25 @@ func FindType(importPath string, name string) reflect.Type {
 
 func AddType(importPath string, name string, p reflect.Type) {
 	typesByName[importPath+"#"+name] = p
+}
+
+// FindByType tries to find the Struct or interface from the reflect type, otherwise returns nil.
+func FindByType(t reflect.Type) interface{} {
+	for k, v := range typesByName {
+		if v == t {
+			tokens := strings.Split(k, "#")
+			strct := FindStruct(tokens[0], tokens[1])
+			if strct != nil {
+				return strct
+			}
+			iface := FindInterface(tokens[0], tokens[1])
+			if iface != nil {
+				return iface
+			}
+			return nil
+		}
+	}
+	return nil
 }
 
 func Interfaces() []Interface {
