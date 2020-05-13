@@ -20,7 +20,7 @@ import (
 	"strings"
 )
 
-const importPathReflectPlus = "github.com/worldiety/reflectplus"
+const importPathReflectPlus = "github.com/golangee/reflectplus"
 
 var packages []Package
 var typesByName map[string]reflect.Type = make(map[string]reflect.Type)
