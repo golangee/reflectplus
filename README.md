@@ -1,4 +1,4 @@
-# reflectplus
+# reflectplus [![GoDoc](https://godoc.org/github.com/golangee/reflectplus?status.svg)](http://godoc.org/github.com/golangee/reflectplus)
 The missing reflection bits for go. This library parses your go source code and generates
 reflection information at compile time, which can be inspected later at runtime. This can be also used
 for code generation. 
