@@ -62,7 +62,7 @@ package main
 import (
     "my/module/pckage"
     "fmt"
-    "github.com/worldiety/reflectplus"
+    "github.com/golangee/reflectplus"
     _ "my/module"
 )
 
@@ -92,7 +92,7 @@ func main(){
 package main
 
 import (
-	"github.com/worldiety/reflectplus"
+	"github.com/golangee/reflectplus"
 )
 
 func main() {
@@ -100,7 +100,7 @@ func main() {
 }
 
 # import dependency
-go get github.com/worldiety/reflectplus
+go get github.com/golangee/reflectplus
 
 # go generate
 go generate ./...
@@ -109,7 +109,7 @@ go generate ./...
 # e.g. in my/module/cmd/app/main.go
 package main
 
-import _ "github.com/worldiety/mercurius"
+import _ "github.com/my/package"
 
 func main(){
 //...
@@ -118,7 +118,7 @@ func main(){
 
 ### standalone
 ```bash
-GO111MODULE=off && go get -u github.com/worldiety/reflectplus/cmd/reflectplus
+GO111MODULE=off && go get -u github.com/golangee/reflectplus/cmd/reflectplus
 cd my/module
 reflectplus
 ```

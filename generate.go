@@ -72,14 +72,14 @@ func writeInit(w *goGenFile, pkg Package) {
 	// write the proxy registrations
 	for _, iface := range pkg.AllInterfaces() {
 		tName := typesafeName(iface.ImportPath) + iface.Name + "Proxy"
-		w.Printf(`%s("%s","%s", func(h %s) interface{} {`, w.ImportName("github.com/worldiety/reflectplus", "AddProxyFactory"), iface.ImportPath, iface.Name, w.ImportName("github.com/worldiety/reflectplus", "InvocationHandler"))
+		w.Printf(`%s("%s","%s", func(h %s) interface{} {`, w.ImportName(importPathReflectPlus, "AddProxyFactory"), iface.ImportPath, iface.Name, w.ImportName(importPathReflectPlus, "InvocationHandler"))
 		w.Printf("\n")
 		w.Printf("return %s{Handler:h}\n", tName)
 		w.Printf("})\n")
 	}
 
 	// write the package information
-	w.Printf("if _,err := %s(metaData);err!=nil{\n", w.ImportName("github.com/worldiety/reflectplus", "ImportMetaData"))
+	w.Printf("if _,err := %s(metaData);err!=nil{\n", w.ImportName(importPathReflectPlus, "ImportMetaData"))
 	w.Printf("panic(err)\n")
 	w.Printf("}\n")
 
@@ -103,7 +103,7 @@ func writeTypeOfRegistrations(w *goGenFile, pkg Package) {
 			continue //TODO  avoid import "xyz" is a program, not an importable package
 		}
 		typeName := w.ImportName(s.ImportPath, s.Name)
-		add := w.ImportName("github.com/worldiety/reflectplus", "AddType")
+		add := w.ImportName(importPathReflectPlus, "AddType")
 		refl := w.ImportName("reflect", "TypeOf")
 		w.Printf("%s(\"%s\",\"%s\",%s(%s{}))\n", add, s.ImportPath, s.Name, refl, typeName)
 	}

@@ -20,6 +20,8 @@ import (
 	"strings"
 )
 
+const importPathReflectPlus = "github.com/worldiety/reflectplus"
+
 var packages []Package
 var typesByName map[string]reflect.Type = make(map[string]reflect.Type)
 

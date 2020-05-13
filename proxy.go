@@ -47,7 +47,7 @@ func generateSrcProxy(w *goGenFile, i Interface) {
 
 	w.Printf("type %s struct {\n", tName)
 	w.ShiftRight()
-	w.Printf("Handler %s\n", w.ImportName("github.com/worldiety/reflectplus", "InvocationHandler"))
+	w.Printf("Handler %s\n", w.ImportName(importPathReflectPlus, "InvocationHandler"))
 	w.ShiftLeft()
 	w.Printf("}\n")
 	for _, m := range i.Methods {
