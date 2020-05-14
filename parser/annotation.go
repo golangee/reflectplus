@@ -16,6 +16,7 @@ package parser
 
 import (
 	"encoding/json"
+	"regexp"
 	"strings"
 )
 
@@ -167,6 +168,7 @@ func parseValues(args, line string) (map[string]interface{}, error) {
 
 // ParseAnnotations tries to parse all annotations from the given text and only returns ParserErrors
 func ParseAnnotations(text string) ([]Annotation, error) {
+	text = convertMultilineSegmentsToLines(text)
 	var res []Annotation
 	lines := strings.Split(text, "\n")
 	for _, line := range lines {
@@ -179,4 +181,68 @@ func ParseAnnotations(text string) ([]Annotation, error) {
 		}
 	}
 	return res, nil
+}
+
+var multiLineQuotRegex = regexp.MustCompile(`"""`)
+var multiLinePrefix = regexp.MustCompile(`\(\s*"""`)
+var multiLinePostfix = regexp.MustCompile(`"""\s*\)`)
+
+// convertMultilineSegmentsToLines walks through the text and merges the text inside triple quotations
+// each into a single line.
+func convertMultilineSegmentsToLines(text string) string {
+	opening := multiLinePrefix.FindAllStringIndex(text, -1)
+	closing := multiLinePostfix.FindAllStringIndex(text, -1)
+
+	// naive balancing and zero literal check
+	if len(opening) != len(closing) || len(opening) == 0 {
+		return text
+	}
+
+	endOfLit := 0
+	sb := &strings.Builder{}
+	for i := 0; i < len(opening); i++ {
+		start := opening[i]
+		stop := closing[i]
+		// must not overlap
+		if start[0] >= stop[0] {
+			return text
+		}
+
+		// copy plain text
+		sb.WriteString(text[endOfLit:start[0]])
+		literalContent := text[start[1]:stop[0]]
+		literalContent = normalizeLiteral(literalContent)
+		sb.WriteString(literalContent)
+		endOfLit = stop[1]
+	}
+
+	return sb.String()
+}
+
+// normalizeLiteral removes any new lines, replaces it by a single whitespace and appends (" and ") to it
+func normalizeLiteral(s string) string {
+	s = strings.TrimSpace(s)
+	requireQuot := !strings.HasPrefix(s, "\"")
+	sb := &strings.Builder{}
+	sb.WriteString("(")
+	if requireQuot {
+		sb.WriteRune('"')
+	}
+	lines := strings.Split(s, "\n")
+	everWritten := false
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if len(line) > 0 {
+			if everWritten {
+				sb.WriteRune(' ')
+			}
+			sb.WriteString(line)
+			everWritten = true
+		}
+	}
+	if requireQuot {
+		sb.WriteRune('"')
+	}
+	sb.WriteString(")\n")
+	return sb.String()
 }

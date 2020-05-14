@@ -92,3 +92,58 @@ func TestParseAnnotation(t *testing.T) {
 		})
 	}
 }
+
+func TestMultiline(t *testing.T) {
+	textBlock := `
+stuff
+ @Repo
+ @Repo()
+ @Repo({}) // comments allowed, outer {} can be omitted 
+ @Repo({"value":5})
+ @Repo(5) // implicitly wrapped into {"value": 5}
+ @Repo("text") // implicitly wrapped into {"value": "text"}
+ @Repo("value":"te:xt") // this is fine 
+ @Repo("values":["can","be","multiple"])
+ @Repo("anyKey":"anyValue","num":5,"bool":true,"nested":{"care":{"of":["your", "head"]}})
+ @Repo(   """
+    this is 
+    a multiline string 
+    or json literal.
+    However line breaks and additional start/ending spaces are discarded and replaced by 
+    single spaces.
+ """
+)
+otherstuff
+
+   @ee.sql.Schema("""
+   "dialect":"mysql", "version":1, "group":"some_name", "value":
+   "CREATE TABLE IF NOT EXISTS 'some_table_name'
+   (
+    	'group'              VARCHAR(255) NOT NULL,
+		'version'            BIGINT       NOT NULL,
+	'script'             VARCHAR(255) NOT NULL,
+   	'type'               VARCHAR(12)  NOT NULL,
+	'checksum'           CHAR(64)     NOT NULL,
+	'applied_at'         TIMESTAMP    NOT NULL,
+	'execution_duration' BIGINT       NOT NULL,
+	'status'             VARCHAR(12)  NOT NULL,
+	'log'                TEXT         NOT NULL,
+    	PRIMARY KEY ('group', 'version')
+	 )"
+   """)
+
+`
+
+	annotations, err := ParseAnnotations(textBlock)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(annotations) != 11 {
+		t.Fatal(annotations)
+	}
+
+	if annotations[9].Values["value"] != "this is a multiline string or json literal. However line breaks and additional start/ending spaces are discarded and replaced by single spaces." {
+		t.Fatal(annotations[9])
+	}
+}

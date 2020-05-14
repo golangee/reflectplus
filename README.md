@@ -32,6 +32,7 @@ is not module ready.
 - [ ] other type definitions
 - [x] interface proxy (stub code generation)
 - [ ] private functions, methods, types (will never be supported)
+- [x] multiline annotation values
 
 ## annotation support
 In contrast to macros, annotations are just passive data key/value pairs in JSON notation for any 
@@ -48,6 +49,13 @@ type or function. The following notations are allowed:
 // @Repo("value":"te:xt") // this is fine 
 // @Repo("values":["can","be","multiple"])
 // @Repo("anyKey":"anyValue","num":5,"bool":true,"nested":{"care":{"of":["your", "head"]}})
+// @Repo("""
+//    this is 
+//    a multiline string 
+//    or json literal.
+//    However line breaks and additional start/ending spaces are discarded and replaced by 
+//    a single space.
+// """)
 type MyRepo interface{
     //...
 }
