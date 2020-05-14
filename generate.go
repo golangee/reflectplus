@@ -42,6 +42,10 @@ func Generate(dir string) error {
 
 	fmt.Printf("scanning %s\n", dir)
 
+
+	// better delete immediately our last generated file, it may contain invalid reference which disturbs go tooling
+	_ = os.Remove(filepath.Join(dir, "reflect.gen.go"))
+
 	pkg, err := parser.ParsePackage(nil, dir)
 	if err != nil {
 		return err
