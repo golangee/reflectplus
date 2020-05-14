@@ -215,6 +215,7 @@ func convertMultilineSegmentsToLines(text string) string {
 		sb.WriteString(literalContent)
 		endOfLit = stop[1]
 	}
+	sb.WriteString(text[endOfLit:])
 
 	return sb.String()
 }

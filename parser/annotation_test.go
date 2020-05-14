@@ -132,6 +132,7 @@ otherstuff
 	 )"
    """)
 
+ @ee.stereotype.Repository("sms")
 `
 
 	annotations, err := ParseAnnotations(textBlock)
@@ -139,7 +140,7 @@ otherstuff
 		t.Fatal(err)
 	}
 
-	if len(annotations) != 11 {
+	if len(annotations) != 12 {
 		t.Fatal(annotations)
 	}
 

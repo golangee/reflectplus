@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/golangee/reflectplus/parser"
+	"math"
 	"strconv"
 )
 
@@ -73,6 +74,7 @@ func (p *Package) AllStructs() []Struct {
 
 type Annotations []Annotation
 
+// Has returns true if at least one annotation with the given name exists
 func (s Annotations) Has(name string) bool {
 	for _, a := range s {
 		if a.Name == name {
@@ -80,6 +82,49 @@ func (s Annotations) Has(name string) bool {
 		}
 	}
 	return false
+}
+
+// FindFirst returns the first matching annotation
+func (s Annotations) FindFirst(name string) *Annotation {
+	for _, a := range s {
+		if a.Name == name {
+			return &a
+		}
+	}
+	return nil
+}
+
+// FindAll returns all annotations with the given name
+func (s Annotations) FindAll(name string) []Annotation {
+	var r []Annotation
+	for _, a := range s {
+		if a.Name == name {
+			r = append(r, a)
+		}
+	}
+	return r
+}
+
+// MustOne asserts that only
+func (s Annotations) MustOne(name string) (*Annotation, error) {
+	var r *Annotation
+	for _, a := range s {
+		if a.Name == name {
+			if r != nil {
+				return nil, fmt.Errorf("annotation '%s' is ambigous but must be unique", name)
+			}
+			r = &a
+		}
+	}
+	if r == nil {
+		err := fmt.Errorf("expected annotation '%s' not found", name)
+		if len(s) > 0 {
+			return nil, PositionalError(s[0], err)
+		} else {
+			return nil, err
+		}
+	}
+	return r, nil
 }
 
 // An Annotation is actually an @-prefixed-named json object one-liner
@@ -93,6 +138,51 @@ type Annotation struct {
 
 func (a Annotation) Position() Pos {
 	return a.Pos
+}
+
+func (a Annotation) OptInt(key string, defaultValue int) int {
+	if a.Values == nil {
+		return defaultValue
+	}
+	v := a.Values[key]
+	if v == nil {
+		return defaultValue
+	}
+
+	var val float64
+	if s, ok := v.(float64); ok {
+		val = s
+	} else {
+		tmp := fmt.Sprintf("%v", v)
+		f, err := strconv.ParseFloat(tmp, 64)
+		if err != nil {
+			return defaultValue
+		}
+		val = f
+	}
+
+	const epsilon = 1e-9
+	if _, frac := math.Modf(math.Abs(val)); frac < epsilon || frac > 1.0-epsilon {
+		return int(val)
+	}
+	return defaultValue
+}
+
+func (a Annotation) OptString(key string, defaultValue string) string {
+	if a.Values == nil {
+		return defaultValue
+	}
+
+	v := a.Values[key]
+	if v == nil {
+		return defaultValue
+	}
+
+	if s, ok := v.(string); ok {
+		return s
+	}
+
+	return fmt.Sprintf("%v", v)
 }
 
 func (a Annotation) AsString(key string) string {
@@ -187,12 +277,20 @@ type Interface struct {
 	Pos         Pos          `json:"pos,omitempty"`
 }
 
-func (p *Interface) String() string {
+func (p Interface) GetAnnotations() Annotations {
+	return p.Annotations
+}
+
+func (p Interface) String() string {
 	b, err := json.MarshalIndent(p, "", " ")
 	if err != nil {
 		panic(err)
 	}
 	return string(b)
+}
+
+func (p Interface) Position() Pos {
+	return p.Pos
 }
 
 type Method struct {
@@ -227,24 +325,8 @@ func (m Method) ParamAndIndexByName(n string) (*Param, int) {
 	return nil, -1
 }
 
-func (m Method) FindAnnotations(name string) []Annotation {
-	var r []Annotation
-	for _, a := range m.Annotations {
-		if a.Name == name {
-			r = append(r, a)
-		}
-	}
-	return r
-}
-
-// AnnotationByName asserts the existence of the named annotation and panics otherwise
-func (m Method) MustAnnotationByName(n string) Annotation {
-	for _, a := range m.Annotations {
-		if a.Name == n {
-			return a
-		}
-	}
-	panic(m.Pos.ideString() + " annotation '" + n + "' not found")
+func (m Method) GetAnnotations() Annotations {
+	return m.Annotations
 }
 
 type Param struct {
@@ -317,14 +399,8 @@ type Struct struct {
 	Pos         Pos          `json:"pos,omitempty"`
 }
 
-func (s Struct) FindAnnotations(name string) []Annotation {
-	var r []Annotation
-	for _, a := range s.Annotations {
-		if a.Name == name {
-			r = append(r, a)
-		}
-	}
-	return r
+func (s Struct) GetAnnotations() Annotations {
+	return s.Annotations
 }
 
 func (s Struct) Position() Pos {
