@@ -81,13 +81,13 @@ func TestParseAnnotation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ParseAnnotation(tt.line)
+			got, err := ParseAnnotations(tt.line)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseAnnotation() error = %v, wantErr %v => %+v", err, tt.wantErr, got)
 				return
 			}
-			if !reflect.DeepEqual(got.Values, tt.want.Values) {
-				t.Errorf("expected %v but got %v", tt.want.Values, got.Values)
+			if !reflect.DeepEqual(got[0].Values, tt.want.Values) {
+				t.Errorf("expected %v but got %v", tt.want.Values, got[0].Values)
 			}
 		})
 	}
@@ -101,7 +101,7 @@ stuff
  @Repo({}) // comments allowed, outer {} can be omitted 
  @Repo({"value":5})
  @Repo(5) // implicitly wrapped into {"value": 5}
- @Repo("text") // implicitly wrapped into {"value": "text"}
+ @Repo("text)") // implicitly wrapped into {"value": "text"}
  @Repo("value":"te:xt") // this is fine 
  @Repo("values":["can","be","multiple"])
  @Repo("anyKey":"anyValue","num":5,"bool":true,"nested":{"care":{"of":["your", "head"]}})
@@ -111,28 +111,26 @@ stuff
     or json literal.
     However line breaks and additional start/ending spaces are discarded and replaced by 
     single spaces.
- """
-)
+ """)
 otherstuff
 
-   @ee.sql.Schema("""
-   "dialect":"mysql", "version":1, "group":"some_name", "value":
-   "CREATE TABLE IF NOT EXISTS 'some_table_name'
-   (
-    	'group'              VARCHAR(255) NOT NULL,
-		'version'            BIGINT       NOT NULL,
-	'script'             VARCHAR(255) NOT NULL,
-   	'type'               VARCHAR(12)  NOT NULL,
-	'checksum'           CHAR(64)     NOT NULL,
-	'applied_at'         TIMESTAMP    NOT NULL,
-	'execution_duration' BIGINT       NOT NULL,
-	'status'             VARCHAR(12)  NOT NULL,
-	'log'                TEXT         NOT NULL,
-    	PRIMARY KEY ('group', 'version')
-	 )"
-   """)
+@ee.sql.Schema("""
+	{
+		"dialect":"mysql"
+	}
+	CREATE TABLE IF NOT EXISTS "sms" (
+	  "id" BINARY(16) NOT NULL,
+	  "recipient" VARCHAR(255) NOT NULL COMMENT 'the phone number to send to',
+	  "text" TEXT NOT NULL COMMENT 'SMS text is limited to 160 chars (non multibyte?) per message but can be joined from an arbitrary amount of sms messages.',
+	  "created_at" TIMESTAMP NOT NULL,
+	  "send_at" TIMESTAMP NOT NULL DEFAULT 0,
+	  "status" ENUM("unknown", "success", "failed") NOT NULL DEFAULT 'unknown',
+	  "details" JSON NOT NULL DEFAULT '' COMMENT 'contains arbitrary status details',
+	  PRIMARY KEY ("id"))
+	ENGINE = InnoDB;
+""")
 
- @ee.stereotype.Repository("sms")
+@ee.stereotype.Repository("sms")
 `
 
 	annotations, err := ParseAnnotations(textBlock)
@@ -141,10 +139,24 @@ otherstuff
 	}
 
 	if len(annotations) != 12 {
-		t.Fatal(annotations)
+		t.Fatal(len(annotations), annotations)
 	}
 
-	if annotations[9].Values["value"] != "this is a multiline string or json literal. However line breaks and additional start/ending spaces are discarded and replaced by single spaces." {
+	if CanonizeString(annotations[9].Values["value"].(string)) != "this is a multiline string or json literal. However line breaks and additional start/ending spaces are discarded and replaced by single spaces." {
 		t.Fatal(annotations[9])
+	}
+}
+
+func TestCanonizeString(t *testing.T) {
+	set := [][]string{
+		{"a", "a"},
+		{"  a  ", "a"},
+		{"  a\nb\t     \n    c  d", "a b c  d"},
+	}
+	for _, test := range set {
+		r := CanonizeString(test[0])
+		if r != test[1] {
+			t.Fatalf("%s: expected %s but got %s", test[0], test[1], r)
+		}
 	}
 }

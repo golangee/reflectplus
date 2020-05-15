@@ -50,6 +50,9 @@ type or function. The following notations are allowed:
 // @Repo("values":["can","be","multiple"])
 // @Repo("anyKey":"anyValue","num":5,"bool":true,"nested":{"care":{"of":["your", "head"]}})
 // @Repo("""
+//    {
+//      "json":"front matter"
+//    }
 //    this is 
 //    a multiline string 
 //    or json literal.

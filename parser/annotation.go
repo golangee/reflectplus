@@ -16,18 +16,20 @@ package parser
 
 import (
 	"encoding/json"
-	"regexp"
+	"fmt"
+	"strconv"
 	"strings"
 )
 
 // An AnnotationParserError means that an annotation has been found but could not be parsed
 type AnnotationParserError struct {
 	Text    string
+	LineNo  int
 	Details string
 }
 
 func (a *AnnotationParserError) Error() string {
-	return "ParserError: " + a.Text + ": " + a.Details
+	return "ParserError: " + a.Text + ":" + strconv.Itoa(a.LineNo) + ": " + a.Details
 }
 
 //A NoAnnotationError means that Text did not contain any annotation
@@ -70,165 +72,190 @@ func validDotIdentifier(str string) bool {
 	return true
 }
 
-// ParseAnnotation is a simple minimal parser which evaluates a single line as an Annotation.
-// If the given line is not an annotation at all, *NoAnnotationError is returned.
-// An annotation always starts with an @ followed by a char sequence with optional opening and closing braces.
-//
-// Examples
-//  *not valid: @
-//  *not valid: @()
-//  *valid: @a
-//  *valid: @a.b.c() // some comment or text )
-//  *invalid: @a.b.c("hello") ) // this is wrong syntax
-func ParseAnnotation(line string) (Annotation, error) {
-	annotation := Annotation{
-		Text: line,
-	}
-	cleanLine := line
-	commentIdx := strings.Index(line, "//")
-	if commentIdx >= 0 {
-		cleanLine = cleanLine[0:commentIdx]
-		annotation.Doc = strings.TrimSpace(line[commentIdx+2:])
-	}
-
-	cleanLine = strings.TrimSpace(cleanLine)
-	if len(cleanLine) == 0 {
-		return annotation, NoAnnotationError{line}
-	}
-
-	if cleanLine[0] != '@' {
-		return annotation, NoAnnotationError{line}
-	}
-
-	openArg := strings.Index(cleanLine, "(")
-	closeArg := strings.LastIndex(cleanLine, ")")
-
-	if openArg != closeArg && (openArg == -1 || closeArg == -1) {
-		return annotation, &AnnotationParserError{line, "unbalanced open/close argument braces"}
-	}
-	annotationName := ""
-	// case where no params are given
-	if openArg == -1 {
-		annotationName = cleanLine[1:]
-	} else {
-		annotationName = cleanLine[1:openArg]
-	}
-
-	if !validDotIdentifier(annotationName) {
-		return annotation, &AnnotationParserError{line, "annotation identifier is invalid"}
-	}
-
-	annotation.Name = annotationName
-
-	if openArg == -1 {
-		// no args
-		annotation.Values = make(map[string]interface{})
-		return annotation, nil
-	}
-
-	args := strings.TrimSpace(cleanLine[openArg+1 : closeArg])
-
-	// missing {} can be detected easily
-	if !strings.HasPrefix(args, "{") {
-		// try 0: correct key/value but just without braces
-		tmp := "{" + args + "}"
-		values, err1 := parseValues(tmp, line)
-		if err1 != nil {
-			// try 1: just a string, without key/value
-			tmp := `{"value":` + args + "}"
-			values, err2 := parseValues(tmp, line)
-			if err2 != nil {
-				// nothing we can do
-				return annotation, err1
-			}
-			annotation.Values = values
-		} else {
-			annotation.Values = values
-		}
-	} else {
-		// otherwise just try to parse without processing
-		values, err := parseValues(args, line)
-		if err != nil {
-			return annotation, err
-		}
-		annotation.Values = values
-	}
-
-	return annotation, nil
-}
-
-func parseValues(args, line string) (map[string]interface{}, error) {
-	values := make(map[string]interface{})
-	err := json.Unmarshal([]byte(args), &values)
-	if err != nil {
-		return nil, &AnnotationParserError{line, "annotation arguments are invalid: " + err.Error()}
-	}
-	return values, nil
-}
-
-// ParseAnnotations tries to parse all annotations from the given text and only returns ParserErrors
+// ParseAnnotations tries to parse any annotations from the given text.
 func ParseAnnotations(text string) ([]Annotation, error) {
-	text = convertMultilineSegmentsToLines(text)
 	var res []Annotation
 	lines := strings.Split(text, "\n")
-	for _, line := range lines {
-		a, err := ParseAnnotation(line)
-		if err != nil && !IsNoAnnotationError(err) {
-			return res, err
-		}
-		if err == nil {
-			res = append(res, a)
+	for lineNo := 0; lineNo < len(lines); lineNo++ {
+		line := lines[lineNo]
+		trimmedLine := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmedLine, "@") {
+			commentIdx := strings.Index(trimmedLine, "//")
+			doc := ""
+			if commentIdx >= 0 {
+				trimmedLine = trimmedLine[0:commentIdx]
+				doc = strings.TrimSpace(line[commentIdx+2:])
+			}
+			openArg := strings.Index(trimmedLine, "(")
+			closeArg := strings.LastIndex(trimmedLine, ")")
+
+			multilineMarker := strings.Index(trimmedLine, `"""`)
+
+			if openArg != closeArg && (openArg == -1 || closeArg == -1) && multilineMarker == -1 {
+				return nil, &AnnotationParserError{line, lineNo, "unbalanced open/close argument braces"}
+			}
+
+			annotationName := ""
+			// case where no params are given
+			if openArg == -1 {
+				annotationName = trimmedLine[1:]
+			} else {
+				annotationName = trimmedLine[1:openArg]
+			}
+
+			if !validDotIdentifier(annotationName) {
+				return nil, &AnnotationParserError{line, lineNo, "annotation identifier is invalid"}
+			}
+
+			if multilineMarker == -1 {
+				var args string
+				if openArg > -1 {
+					args = strings.TrimSpace(trimmedLine[openArg+1 : closeArg])
+				}
+				annotation := parseSingleLineAnnotation(line, lineNo, annotationName, args, doc)
+				res = append(res, annotation)
+			} else {
+				// ok that's ugly, we have a multiline marker, so we will now search the eof which is another triple followed by )
+				buf := &strings.Builder{}
+				buf.WriteString(line[strings.Index(line, `"""`)+3:]) // use original index, without trimming and comment removal
+				for {
+					lineNo++
+					nextLine := lines[lineNo]
+					eofMarker := strings.LastIndex(nextLine, `""")`)
+					if eofMarker >= 0 {
+						buf.WriteString(nextLine[:eofMarker])
+						break
+					}
+					buf.WriteString(nextLine)
+					buf.WriteRune('\n')
+				}
+				annotation := parseMultiLineAnnotation(annotationName, buf.String())
+				res = append(res, annotation)
+			}
+
 		}
 	}
 	return res, nil
 }
 
-var multiLineQuotRegex = regexp.MustCompile(`"""`)
-var multiLinePrefix = regexp.MustCompile(`\(\s*"""`)
-var multiLinePostfix = regexp.MustCompile(`"""\s*\)`)
+// parseSingleLineAnnotation uses args and duck-types it into various format styles, it cannot fail,
+// because we support many types of lax annotations and if we fail entirely, we just return the original string
+// (without quotes)
+//  @anno()
+//  @anno("asdf") // "value":"asdf"
+//  @anno(5) // "value":5
+//  @anno("key":"value","o\"ther":"key") //json
+//  @anno({"key":"value","o\"ther":"key"}) //json
+//  @anno(any "ugly and totally un) parseable string) // "value":"any...
+func parseSingleLineAnnotation(line string, lineNo int, name string, args string, doc string) Annotation {
+	a := Annotation{
+		Doc:    doc,
+		Text:   line,
+		Name:   name,
+		Values: map[string]interface{}{},
+	}
+	args = strings.TrimSpace(args)
 
-// convertMultilineSegmentsToLines walks through the text and merges the text inside triple quotations
-// each into a single line.
-func convertMultilineSegmentsToLines(text string) string {
-	opening := multiLinePrefix.FindAllStringIndex(text, -1)
-	closing := multiLinePostfix.FindAllStringIndex(text, -1)
-
-	// naive balancing and zero literal check
-	if len(opening) != len(closing) || len(opening) == 0 {
-		return text
+	// 1. be just empty
+	if args == "" {
+		return a
 	}
 
-	endOfLit := 0
-	sb := &strings.Builder{}
-	for i := 0; i < len(opening); i++ {
-		start := opening[i]
-		stop := closing[i]
-		// must not overlap
-		if start[0] >= stop[0] {
-			return text
+	// 2. be just json
+	values, err := parseJson(args, line, lineNo)
+	if err != nil {
+		// 3. if not, just try with omitted braces
+		values, err = parseJson(fmt.Sprintf(`{%s}`, args), line, lineNo)
+		if err != nil {
+			// 4. if not, put it as a value "as is" and hope it is correctly json escaped
+			values, err = parseJson(fmt.Sprintf(`{"value":%s}`, args), line, lineNo)
+			if err != nil {
+				// 5. we cannot parse it at all, so just keep it as a simple string value (but remove quotes, if any)
+				if strings.HasPrefix(args, `"`) && strings.HasSuffix(args, `"`) {
+					args = args[1 : len(args)-1]
+				}
+				values = map[string]interface{}{"value": args}
+			}
 		}
-
-		// copy plain text
-		sb.WriteString(text[endOfLit:start[0]])
-		literalContent := text[start[1]:stop[0]]
-		literalContent = normalizeLiteral(literalContent)
-		sb.WriteString(literalContent)
-		endOfLit = stop[1]
 	}
-	sb.WriteString(text[endOfLit:])
 
-	return sb.String()
+	a.Values = values
+	return a
 }
 
-// normalizeLiteral removes any new lines, replaces it by a single whitespace and appends (" and ") to it
-func normalizeLiteral(s string) string {
-	s = strings.TrimSpace(s)
-	requireQuot := !strings.HasPrefix(s, "\"")
-	sb := &strings.Builder{}
-	sb.WriteString("(")
-	if requireQuot {
-		sb.WriteRune('"')
+// parseMultiLineAnnotation is quite similar but supports an optional json front matter. It will also never fail.
+//  @anno("""
+//     {
+//          "front":"matter",
+//          "in":"json",
+//          "value":"is overridden"
+//     }
+// 		Any rubbish afterwards is put into the value. Keep in mind that the opening and closing braces must be
+// 		each in it's own line.
+//  """)
+func parseMultiLineAnnotation(name string, args string) Annotation {
+	a := Annotation{
+		Text: args,
+		Name: name,
 	}
+
+	foundOpenBrace := false
+	lines := strings.Split(args, "\n")
+	frontMatter := &strings.Builder{}
+	body := &strings.Builder{}
+	bodyStartAt := -1
+	for idx, line := range lines {
+		if bodyStartAt == -1 {
+			trimmedLine := strings.TrimSpace(line)
+			if trimmedLine == "{" {
+				foundOpenBrace = true
+			}
+			if foundOpenBrace {
+				frontMatter.WriteString(line)
+			}
+			if trimmedLine == "}" {
+				bodyStartAt = idx + 1
+			}
+		} else {
+			body.WriteString(line)
+		}
+	}
+	// 1. if we found no frontmatter, just return raw string
+	if bodyStartAt == -1 {
+		a.Values = map[string]interface{}{"value": args}
+		return a
+	}
+
+	// 2. if we found frontmatter, try to parse it. If we fail, just pass raw string
+	values, err := parseJson(frontMatter.String(), args, 0)
+	if err != nil {
+		a.Values = map[string]interface{}{"value": args}
+		return a
+	}
+
+	// override with body
+	origVal := values["value"]
+	if origVal != nil {
+		values["_value"] = origVal
+	}
+	values["value"] = body.String()
+	a.Values = values
+	return a
+}
+
+func parseJson(args, line string, lineNo int) (map[string]interface{}, error) {
+	values := make(map[string]interface{})
+	err := json.Unmarshal([]byte(args), &values)
+	if err != nil {
+		return nil, &AnnotationParserError{line, lineNo, "annotation arguments are invalid: " + err.Error()}
+	}
+	return values, nil
+}
+
+// CanonizeString removes any new lines, replaces it by a single whitespace and appends (" and ") to it
+func CanonizeString(s string) string {
+	s = strings.TrimSpace(s)
+	sb := &strings.Builder{}
 	lines := strings.Split(s, "\n")
 	everWritten := false
 	for _, line := range lines {
@@ -241,9 +268,5 @@ func normalizeLiteral(s string) string {
 			everWritten = true
 		}
 	}
-	if requireQuot {
-		sb.WriteRune('"')
-	}
-	sb.WriteString(")\n")
 	return sb.String()
 }
