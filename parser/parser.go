@@ -60,6 +60,11 @@ func ParsePackage(parent *Package, dirname string) (*Package, error) {
 	}
 	lastPackageName := ""
 	for _, file := range files {
+		if file.Mode().IsRegular() && file.Name() == "go.mod" && parent != nil {
+			fmt.Printf("found nested go-module in %s, ignoring\n", filepath.Join(dirname, file.Name()))
+			return nil, nil
+		}
+
 		if strings.HasSuffix(file.Name(), ".go") && file.Mode().IsRegular() {
 			if file.Name() == "reflect.gen.go" {
 				// do not eat our own dog food, that would cause generated headaches
@@ -83,7 +88,9 @@ func ParsePackage(parent *Package, dirname string) (*Package, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse go package %s: %w", fname, err)
 			}
-			p.packages = append(p.packages, pck)
+			if pck != nil {
+				p.packages = append(p.packages, pck)
+			}
 		}
 	}
 	p.name = lastPackageName
