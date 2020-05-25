@@ -58,6 +58,7 @@ func ParsePackage(parent *Package, dirname string) (*Package, error) {
 		}
 		p.modName = modInfo.ImportPath
 	}
+
 	lastPackageName := ""
 	for _, file := range files {
 		if file.Mode().IsRegular() && file.Name() == "go.mod" && parent != nil {
