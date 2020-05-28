@@ -25,39 +25,41 @@ import (
 	"strings"
 )
 
-func Must(err error) {
+func Must(pkg *Package, err error) *Package {
 	if err != nil {
 		panic(err)
 	}
+	return pkg
 }
 
-func Generate(dir string) error {
+// Generate writes the meta data into the root of the module as 'reflect.gen.go'. It automatically detects the
+// root package, so must be invoked from a propery sub directory, where 'go mod list' works.
+func Generate(dir string) (*Package, error) {
 	if !strings.HasPrefix(dir, string(os.PathSeparator)) {
 		absDir, err := os.Getwd()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		dir = filepath.Join(absDir, dir)
 	}
 
 	fmt.Printf("scanning %s\n", dir)
 
-
 	// better delete immediately our last generated file, it may contain invalid reference which disturbs go tooling
 	_ = os.Remove(filepath.Join(dir, "reflect.gen.go"))
 
 	pkg, err := parser.ParsePackage(nil, dir)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	metaPkg, err := ParseMetaModel(pkg)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	//fmt.Println(metaPkg)
 
-	return writeReflectFile(dir, metaPkg.ImportPath, *metaPkg)
+	return metaPkg, writeReflectFile(dir, metaPkg.ImportPath, *metaPkg)
 }
 
 func writeReflectFile(dir string, importPath string, pkg Package) error {

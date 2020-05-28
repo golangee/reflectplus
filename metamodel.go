@@ -61,6 +61,7 @@ func (p *Package) AllInterfaces() []Interface {
 	return res
 }
 
+// AllStructs returns all defined structs recursively.
 func (p *Package) AllStructs() []Struct {
 	var res []Struct
 	for _, strct := range p.Structs {
