@@ -113,4 +113,16 @@ func writeTypeOfRegistrations(w *goGenFile, pkg Package) {
 		refl := w.ImportName("reflect", "TypeOf")
 		w.Printf("%s(\"%s\",\"%s\",%s(%s{}))\n", add, s.ImportPath, s.Name, refl, typeName)
 	}
+
+	for _, s := range pkg.AllInterfaces() {
+		if strings.HasSuffix(s.ImportPath, "main") {
+			continue //TODO see above
+		}
+
+		typeName := w.ImportName(s.ImportPath, s.Name)
+		add := w.ImportName(importPathReflectPlus, "AddType")
+		refl := w.ImportName("reflect", "TypeOf")
+		// reflect.TypeOf((*blub)(nil)).Elem()
+		w.Printf("%s(\"%s\",\"%s\",%s((*%s)(nil)).Elem())\n", add, s.ImportPath, s.Name, refl, typeName)
+	}
 }
