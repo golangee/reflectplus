@@ -22,16 +22,17 @@ import (
 
 const importPathReflectPlus = "github.com/golangee/reflectplus"
 
-var packages []Package
+// TODO: this is to much chaos, nested packages may be siblings etc.
+var packages []*Package
 var typesByName map[string]reflect.Type = make(map[string]reflect.Type)
 
-func AddPackage(pkg Package) {
+func AddPackage(pkg *Package) {
 	packages = append(packages, pkg)
 }
 
-func ImportMetaData(jsn []byte) (Package, error) {
-	pkg := Package{}
-	err := json.Unmarshal(jsn, &pkg)
+func ImportMetaData(jsn []byte) (*Package, error) {
+	pkg := &Package{}
+	err := json.Unmarshal(jsn, pkg)
 	if err != nil {
 		return pkg, err
 	}
@@ -39,7 +40,7 @@ func ImportMetaData(jsn []byte) (Package, error) {
 	return pkg, nil
 }
 
-func Packages() []Package {
+func Packages() []*Package {
 	return packages
 }
 
@@ -48,8 +49,38 @@ func FindType(importPath string, name string) reflect.Type {
 	return typesByName[importPath+"#"+name]
 }
 
+// AddType registers a go reflect type with an import and its name
 func AddType(importPath string, name string, p reflect.Type) {
 	typesByName[importPath+"#"+name] = p
+}
+
+// PutTypeDef updates or adds a type definition
+func PutTypeDef(typeDef TypeDef) {
+	pkg := ensurePackage(typeDef.ImportPath)
+	for i, d := range pkg.TypeDefs {
+		if d.Name == typeDef.Name {
+			pkg.TypeDefs[i] = typeDef //replace
+			return
+		}
+	}
+
+	// or add
+	pkg.TypeDefs = append(pkg.TypeDefs, typeDef)
+}
+
+// ensurePackage grabs the package by import path and creates empty package, if required
+func ensurePackage(importPath string) *Package {
+	pkg := FindPackage(importPath)
+	if pkg == nil {
+		segments := strings.Split(importPath, "/")
+		pkg = &Package{
+			ImportPath: importPath,
+			Name:       segments[len(segments)-1],
+		}
+		packages = append(packages, pkg)
+	}
+
+	return pkg
 }
 
 // FindByType tries to find the Struct or interface from the reflect type, otherwise returns nil.
@@ -92,6 +123,19 @@ func FindInterface(importPath string, name string) *Interface {
 	return nil
 }
 
+// Returns the found type definition or nil
+func FindTypeDef(importPath, name string) *TypeDef {
+	for _, p := range packages {
+		for _, def := range p.AllTypeDefs() {
+			if def.ImportPath == importPath && def.Name == name {
+				return &def
+			}
+		}
+	}
+
+	return nil
+}
+
 func FindStruct(importPath string, name string) *Struct {
 	for _, p := range packages {
 		for _, iface := range p.AllStructs() {
@@ -106,7 +150,7 @@ func FindStruct(importPath string, name string) *Struct {
 func FindPackage(importPath string) *Package {
 	for _, p := range packages {
 		if p.ImportPath == importPath {
-			return &p
+			return p
 		}
 		var r *Package
 		p.VisitPackages(func(pkg Package) bool {

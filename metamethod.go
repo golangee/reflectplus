@@ -176,6 +176,8 @@ func typeDeclOf(ctx *parser.File, exp ast.Expr) TypeDecl {
 	case *ast.FuncType:
 		method := parseMethod(ctx, t)
 		return TypeDecl{Identifier: "func", Func: &method}
+	case *ast.StructType:
+		return TypeDecl{Identifier: "struct{}"}
 	}
 
 	panic(reflect.TypeOf(exp))

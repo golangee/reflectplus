@@ -30,6 +30,7 @@ type Package struct {
 	Interfaces []*Interface `json:"interfaces,omitempty"`
 	Structs    []*Struct    `json:"structs,omitempty"`
 	Funcs      []Method     `json:"funcs,omitempty"`
+	TypeDefs   []TypeDef    `json:"typeDefs,omitempty"`
 }
 
 func (p *Package) String() string {
@@ -71,6 +72,28 @@ func (p *Package) AllStructs() []Struct {
 		res = append(res, pkg.AllStructs()...)
 	}
 	return res
+}
+
+// AllTypeDefs returns all defined types recursively.
+func (p *Package) AllTypeDefs() []TypeDef {
+	var res []TypeDef
+	for _, def := range p.TypeDefs {
+		res = append(res, def)
+	}
+	for _, pkg := range p.Packages {
+		res = append(res, pkg.AllTypeDefs()...)
+	}
+	return res
+}
+
+// PackageByName searches only the direct children and returns the package or nil if not found.
+func (p *Package) PackageByName(name string) *Package {
+	for _, c := range p.Packages {
+		if c.Name == name {
+			return c
+		}
+	}
+	return nil
 }
 
 type Annotations []Annotation
@@ -364,6 +387,13 @@ func ParseMetaModel(pkg *parser.Package) (*Package, error) {
 	res.Funcs = pkgFuncs
 	_ = pkgFuncs
 
+	typeDefs, err := parseTypeDef(pkg)
+	if err != nil {
+		return nil, err
+	}
+
+	res.TypeDefs = typeDefs
+
 	for _, p := range pkg.Packages() {
 		pkg, err := ParseMetaModel(p)
 		if err != nil {
@@ -380,13 +410,17 @@ func ParseMetaModel(pkg *parser.Package) (*Package, error) {
 // parameter definition variable (ellipsis) is allowed. What makes it even more complex are length attributes for arrays
 // and an variable amount of pointer indirection (stars).
 type TypeDecl struct {
-	ImportPath string     `json:"importPath,omitempty"`
-	Identifier string     `json:"identifier,omitempty"` // slices and arrays are [], maps are map, look at the type Params for details. func is a hard one and is describes in Func
-	Stars      int        `json:"stars,omitempty"`
-	Var        bool       `json:"var,omitempty"`
-	Params     []TypeDecl `json:"params,omitempty"` // generics: currently only slices [], arrays [x] and maps map[a]b are supported
-	Length     int        `json:"length,omitempty"` // parsed array length or -1 for a slice, 0 if not applicable
-	Func       *Method    `json:"func,omitempty"`   // only non-nil if identifier is "func"
+	ImportPath string `json:"importPath,omitempty"`
+
+	// slices and arrays are [], maps are map, look at the type Params for details. func is a hard one and is describes in Func
+	Identifier string `json:"identifier,omitempty"`
+	Stars      int    `json:"stars,omitempty"`
+	Var        bool   `json:"var,omitempty"`
+
+	// generics: currently only slices [], arrays [x] and maps map[a]b are supported
+	Params []TypeDecl `json:"params,omitempty"`
+	Length int        `json:"length,omitempty"` // parsed array length or -1 for a slice, 0 if not applicable
+	Func   *Method    `json:"func,omitempty"`   // only non-nil if identifier is "func"
 }
 
 type Struct struct {
@@ -409,9 +443,9 @@ func (s Struct) Position() Pos {
 }
 
 type Field struct {
-	Doc         string       `json:"doc,omitempty"`
-	Annotations []Annotation `json:"annotations,omitempty"`
-	Name        string
+	Doc         string            `json:"doc,omitempty"`
+	Annotations []Annotation      `json:"annotations,omitempty"`
+	Name        string            `json:"name,omitempty"`
 	Type        TypeDecl          `json:"type,omitempty"`
 	Tags        map[string]string `json:"tags,omitempty"`
 	Pos         Pos               `json:"pos,omitempty"`
@@ -432,4 +466,27 @@ func (p Pos) ideString() string {
 
 type Positional interface {
 	Position() Pos
+}
+
+// A TypeDef matches the specification of the language as described at https://golang.org/ref/spec#Type_definitions.
+type TypeDef struct {
+	Doc         string       `json:"doc,omitempty"`
+	Annotations []Annotation `json:"annotations,omitempty"`
+
+	// Name of the definition
+	Name string `json:"name,omitempty"`
+
+	// ImportPath of the name
+	ImportPath string `json:"importPath,omitempty"`
+
+	// IsAlias is true plain type aliases, like e.g. MyAlias = int. The method set is retained.
+	IsAlias bool `json:"isAlias,omitempty"`
+
+	// UnderlyingType just represents the declaration as-is from the code
+	UnderlyingType TypeDecl `json:"underlyingType,omitempty"`
+
+	//	// ResolvedUnderlyingType declares which type is named. For primitives, this is always the primitive, for maps and arrays it is the type itself, see also https://stackoverflow.com/questions/29332879/golang-underlying-types#:~:text=Each%20type%20T%20has%20an,refers%20in%20its%20type%20declaration.
+	//	ResolvedUnderlyingType TypeDecl `json:"resolvedUnderlyingType,omitempty"`
+
+	Pos Pos `json:"pos,omitempty"`
 }
