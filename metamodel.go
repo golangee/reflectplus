@@ -482,7 +482,7 @@ type TypeDef struct {
 	// IsAlias is true plain type aliases, like e.g. MyAlias = int. The method set is retained.
 	IsAlias bool `json:"isAlias,omitempty"`
 
-	// UnderlyingType just represents the declaration as-is from the code
+	// Underlying just represents the declaration as-is from the code
 	UnderlyingType TypeDecl `json:"underlyingType,omitempty"`
 
 	//	// ResolvedUnderlyingType declares which type is named. For primitives, this is always the primitive, for maps and arrays it is the type itself, see also https://stackoverflow.com/questions/29332879/golang-underlying-types#:~:text=Each%20type%20T%20has%20an,refers%20in%20its%20type%20declaration.

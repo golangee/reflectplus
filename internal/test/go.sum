@@ -1,0 +1,5 @@
+github.com/golangee/reflectplus v0.0.0-20200714084912-c4c874d75eda h1:aSbfyJiiQrXIHSHygq4Y7+HFb9ejNAWbU9Q/uDuTMdQ=
+github.com/golangee/uuid v0.0.0-20200513144043-882c55e8ee6c h1:GoIDuP9Ww1Zso0VpAJ2KMiQRC0agrO8JhlptAodtbVA=
+github.com/golangee/uuid v0.0.0-20200513144043-882c55e8ee6c/go.mod h1:i+BaPFNyXGweWAc/GX3OniM1pz/m1qLja81YgJZOrMQ=
+github.com/google/uuid v1.1.1 h1:Gkbcsh/GbpXz7lPftLA3P6TYMwjCLYm83jiFQZF/3gY=
+github.com/google/uuid v1.1.1/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
