@@ -15,45 +15,119 @@
 package meta
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	"hash"
 	"strconv"
 )
+
+// DeclId is usually a unique hash for a declaration (not just named types).
+type DeclId string
+
+type DeclIdBuilder struct {
+	hasher hash.Hash
+}
+
+func NewDeclId() *DeclIdBuilder {
+	return &DeclIdBuilder{hasher: sha256.New()}
+}
+
+func (b *DeclIdBuilder) Put(values ...interface{}) *DeclIdBuilder {
+	for _, v := range values {
+		switch t := v.(type) {
+		case string:
+			b.hasher.Write([]byte(t))
+		case int:
+			b.hasher.Write([]byte(strconv.Itoa(t)))
+		default:
+			b.hasher.Write([]byte(fmt.Sprintf("%v", v)))
+		}
+	}
+
+	return b
+}
+
+func (b *DeclIdBuilder) Finish() DeclId {
+	r := b.hasher.Sum(nil)
+	b.hasher.Reset()
+	return DeclId(hex.EncodeToString(r[:16])) // 16 byte/128bit is probably still more than enough
+}
+
+type PkgId string
+
+type Package struct {
+	Path         string
+	Name         string
+	Declarations []DeclId
+}
 
 // Table contains all resolved type declarations and other deduplicated information. Due to the sake of the default
 // value in json for integer types (==0), we use 0 to indicate "undefined".
 type Table struct {
-	TypeDecls map[TypeDeclId]TypeDecl
-	Type      map[TypeId]Type
-	Files     map[FileId]string
-	Packages  map[PackageId]Package
-
-	Types map[Qualifier]Type
+	Packages     map[PkgId]*Package
+	Declarations map[DeclId]Type
 }
 
 func NewTable() *Table {
 	t := &Table{
-		TypeDecls: make(map[TypeDeclId]TypeDecl),
-		Files:     make(map[FileId]string),
-		Packages:  make(map[PackageId]Package),
-		Types: map[Qualifier]Type{},
+		Packages:     map[PkgId]*Package{},
+		Declarations: map[DeclId]Type{},
 	}
 
-	//t.initUniverse()
 	return t
 }
 
-func (t *Table) HasType(q Qualifier) bool {
-	_, ok := t.Types[q]
+func (t *Table) HasDeclaration(q DeclId) bool {
+	_, ok := t.Declarations[q]
 	return ok
 }
 
-func (t *Table) PutType(q Qualifier, p Type) {
-	t.Types[q] = p
+func (t *Table) PutDeclaration(q DeclId, p Type) {
+	t.Declarations[q] = p
 }
 
-func (t *Table) initUniverse() {
-	t.Packages[1] = UniversePkg
-	t.TypeDecls[1] = UniverseStruct
+func (t *Table) PutNamedDeclaration(importPath, pkgName string, q DeclId, p *Named) {
+	pid, ok := t.PackageByImportPath(importPath)
+	if !ok {
+		pid = PkgId(NewDeclId().Put(importPath).Finish())
+		t.Packages[pid] = &Package{
+			Path: importPath,
+			Name: pkgName,
+		}
+	}
+	pkg := t.Packages[pid]
+
+	if pkg.Name != pkgName {
+		panic("inconsistent package name:" + pkgName + " vs " + pkg.Name)
+	}
+
+	t.PutDeclaration(q, Type{
+		Named: p,
+	})
+	pkg.Declarations = append(pkg.Declarations, q)
+}
+
+// CreateImportTable creates a new table which assigns each declaration id to its containing package id.
+func (t *Table) CreateImportTable() map[DeclId]PkgId {
+	r := map[DeclId]PkgId{}
+	for pid, pkg := range t.Packages {
+		for _, did := range pkg.Declarations {
+			r[did] = pid
+		}
+	}
+	return r
+}
+
+func (t *Table) PackageByImportPath(importPath string) (PkgId, bool) {
+	for k, v := range t.Packages {
+		if v.Path == importPath {
+			return k, true
+		}
+	}
+
+	return "", false
 }
 
 func (t *Table) String() string {
@@ -62,89 +136,4 @@ func (t *Table) String() string {
 		panic(err) //cannot happen
 	}
 	return string(b)
-}
-
-func (t *Table) TypeId(pkgId PackageId, name string) TypeDeclId {
-	for k, v := range t.TypeDecls {
-		if pkgId != v.PackageId {
-			continue
-		}
-
-		if v.Name == name {
-			return k
-		}
-	}
-
-	return -1
-}
-
-// PutTypeDecl updates or inserts the declaration and returns its id.
-func (t *Table) PutTypeDecl(d TypeDecl) TypeDeclId {
-	newPkg, ok := t.Packages[d.PackageId]
-	if !ok {
-		panic("illegal state: cannot put type declaration with undeclared package" + strconv.Itoa(int(d.PackageId)))
-	}
-
-	lastId := TypeDeclId(-1)
-	for k, v := range t.TypeDecls {
-		if lastId < k {
-			lastId = k
-		}
-
-		kPkg, ok := t.Packages[v.PackageId]
-		if !ok {
-			panic("illegal state: existing type declaration has undeclared package " + strconv.Itoa(int(v.PackageId)))
-		}
-
-		if newPkg.Qualifier == kPkg.Qualifier && d.Name == v.Name {
-			// just update
-			t.TypeDecls[k] = d
-			return k
-		}
-	}
-	lastId++
-
-	//insert
-	t.TypeDecls[lastId] = d
-
-	return lastId
-}
-
-// PutPackageQualifier either returns an existing id or registers an empty package and returns the according new id.
-func (t *Table) PutPackageQualifier(q PackageQualifier) PackageId {
-	lastId := PackageId(-1)
-	for k, v := range t.Packages {
-		if lastId > k {
-			lastId = k
-		}
-
-		if v.Qualifier == q {
-			return k
-		}
-	}
-	lastId++
-
-	t.Packages[lastId] = Package{
-		Doc:       "",
-		Qualifier: q,
-	}
-	return lastId
-}
-
-// PutFile returns either an existing an id or puts the filename into the table and returns the according new id.
-func (t *Table) PutFile(fname string) FileId {
-	lastId := FileId(-1)
-	for k, v := range t.Files {
-		if lastId > k {
-			lastId = k
-		}
-
-		if v == fname {
-			return k
-		}
-	}
-	lastId++
-
-	t.Files[lastId] = fname
-	return lastId
 }

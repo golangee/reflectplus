@@ -15,8 +15,6 @@
 package golang
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"github.com/golangee/reflectplus/internal/annotation"
 	"github.com/golangee/reflectplus/internal/mod"
@@ -29,19 +27,17 @@ import (
 	"golang.org/x/tools/go/packages"
 	"reflect"
 	"strconv"
-	"strings"
 	"sync"
 )
 
-type Project struct {
-}
+
 
 type parseCtx struct {
 	fset  *token.FileSet
 	files []*ast.File
 }
 
-func NewProject(opts Options, dir string, mods mod.Modules) (*meta.Table, error) {
+func NewProject(opts Options, dir string, mods mod.Modules) (*Project, error) {
 	table := meta.NewTable()
 	parseCtx := &parseCtx{}
 	mtx := sync.Mutex{}
@@ -82,7 +78,7 @@ func NewProject(opts Options, dir string, mods mod.Modules) (*meta.Table, error)
 	}
 
 	for _, pkg := range pkgs {
-		/*for expr, tv := range pkg.TypesInfo.Types{
+		/*for expr, tv := range pkg.TypesInfo.Declarations{
 			posn := cfg.Fset.Position(expr.Pos())
 			tvstr := tv.Type.String()
 			if tv.Value != nil {
@@ -119,11 +115,10 @@ func NewProject(opts Options, dir string, mods mod.Modules) (*meta.Table, error)
 
 	}
 
-	return table, nil
+	return &Project{table: table}, nil
 }
 
-func putType(table *meta.Table, fset *parseCtx, typ types.Type) (meta.Qualifier, error) {
-
+func putType(table *meta.Table, fset *parseCtx, typ types.Type) (meta.DeclId, error) {
 	switch t := typ.(type) {
 	case *types.Named:
 		return putNamedType(table, fset, t)
@@ -150,37 +145,38 @@ func putType(table *meta.Table, fset *parseCtx, typ types.Type) (meta.Qualifier,
 	}
 }
 
-func putChan(table *meta.Table, fset *parseCtx, obj *types.Chan) (meta.Qualifier, error) {
+func putChan(table *meta.Table, fset *parseCtx, obj *types.Chan) (meta.DeclId, error) {
 	tQual, err := putType(table, fset, obj.Elem())
 	if err != nil {
 		return "", err
 	}
 
-	res := &meta.Channel{
-		ChanDir: meta.ChanDir(obj.Dir()), //TODO better switch case?
-		TypeID:  tQual,
-	}
-
-	var q meta.Qualifier
+	myDir := meta.ChanDir("")
 	switch obj.Dir() {
 	case types.SendRecv:
-		q = meta.NewQualifier("", "", "chan["+sanitizeQualifierStr(res.TypeID)+"]")
-	case types.SendOnly:
-		q = meta.NewQualifier("", "", "chan<-["+sanitizeQualifierStr(res.TypeID)+"]")
+		myDir = meta.SendRecv
 	case types.RecvOnly:
-		q = meta.NewQualifier("", "", "<-chan["+sanitizeQualifierStr(res.TypeID)+"]")
+		myDir = meta.RecvOnly
+	case types.SendOnly:
+		myDir = meta.SendOnly
 	default:
-		panic(obj.Dir())
+		panic("invalid chan dir:" + strconv.Itoa(int(obj.Dir())))
 	}
 
-	table.PutType(q, meta.Type{
+	res := &meta.Channel{
+		ChanDir: myDir,
+		DeclId:  tQual,
+	}
+
+	id := meta.NewDeclId().Put(res.DeclId, obj.Dir()).Finish()
+	table.PutDeclaration(id, meta.Type{
 		Channel: res,
 	})
 
-	return q, nil
+	return id, nil
 }
 
-func putMap(table *meta.Table, fset *parseCtx, obj *types.Map) (meta.Qualifier, error) {
+func putMap(table *meta.Table, fset *parseCtx, obj *types.Map) (meta.DeclId, error) {
 	kQual, err := putType(table, fset, obj.Key())
 	if err != nil {
 		return "", err
@@ -196,18 +192,19 @@ func putMap(table *meta.Table, fset *parseCtx, obj *types.Map) (meta.Qualifier, 
 		Value: vQual,
 	}
 
-	q := meta.NewQualifier("", "", "map["+sanitizeQualifierStr(res.Key)+"]"+sanitizeQualifierStr(res.Value))
-	table.PutType(q, meta.Type{
+	q := meta.NewDeclId().Put("map", res.Key, res.Value).Finish()
+	table.PutDeclaration(q, meta.Type{
 		Map: res,
 	})
 
 	return q, nil
 }
 
-func putSignature(table *meta.Table, fset *parseCtx, obj *types.Signature) (meta.Qualifier, error) {
+func putSignature(table *meta.Table, fset *parseCtx, obj *types.Signature) (meta.DeclId, error) {
 	res := &meta.Signature{}
 
-	hasher := sha256.New()
+	builder := meta.NewDeclId()
+	builder.Put("signature")
 	for i := 0; i < obj.Params().Len(); i++ {
 		param := obj.Params().At(i)
 		pQual, err := putType(table, fset, param.Type())
@@ -217,12 +214,11 @@ func putSignature(table *meta.Table, fset *parseCtx, obj *types.Signature) (meta
 
 		p := meta.Param{
 			Name:   param.Name(),
-			TypeId: pQual,
+			DeclId: pQual,
 		}
 		res.Params = append(res.Params, p)
 
-		hasher.Write([]byte(p.Name))
-		hasher.Write([]byte(p.TypeId))
+		builder.Put(p.Name, p.DeclId)
 	}
 
 	for i := 0; i < obj.Results().Len(); i++ {
@@ -234,16 +230,15 @@ func putSignature(table *meta.Table, fset *parseCtx, obj *types.Signature) (meta
 
 		p := meta.Param{
 			Name:   param.Name(),
-			TypeId: pQual,
+			DeclId: pQual,
 		}
 		res.Results = append(res.Results, p)
 
-		hasher.Write([]byte(p.Name))
-		hasher.Write([]byte(p.TypeId))
+		builder.Put(p.Name, p.DeclId)
 	}
 
 	res.Variadic = obj.Variadic()
-	hasher.Write([]byte(strconv.FormatBool(res.Variadic)))
+	builder.Put(res.Variadic)
 
 	if obj.Recv() != nil {
 		rQual, err := putType(table, fset, obj.Recv().Type())
@@ -253,39 +248,40 @@ func putSignature(table *meta.Table, fset *parseCtx, obj *types.Signature) (meta
 
 		res.Receiver = &meta.Param{
 			Name:   obj.Recv().Name(),
-			TypeId: rQual,
+			DeclId: rQual,
 		}
 
-		hasher.Write([]byte(res.Receiver.Name))
-		hasher.Write([]byte(res.Receiver.TypeId))
+		builder.Put(res.Receiver.Name)
+		builder.Put(res.Receiver.DeclId)
 	}
 
-	q := meta.NewQualifier("", "", "func-"+hex.EncodeToString(hasher.Sum(nil)[:8]))
+	q := builder.Finish()
 
-	table.PutType(q, meta.Type{
+	table.PutDeclaration(q, meta.Type{
 		Signature: res,
 	})
 
 	return q, nil
 }
 
-func putFunc(table *meta.Table, fset *parseCtx, obj *types.Func) (meta.Qualifier, error) {
+func putFunc(table *meta.Table, fset *parseCtx, obj *types.Func) (meta.DeclId, error) {
 	pos := fset.fset.Position(obj.Pos())
 
-	var qualifier meta.Qualifier
+	pkgImportPath := ""
+	pkgName := ""
+
 	if obj.Pkg() != nil {
-		qualifier = meta.NewQualifier(obj.Pkg().Path(), obj.Pkg().Name(), obj.Name())
-	} else {
-		// package less named types are from universe, like error
-		qualifier = meta.NewQualifier("", "", obj.Name())
+		pkgImportPath = obj.Pkg().Path()
+		pkgName = obj.Pkg().Name()
 	}
 
-	if table.HasType(qualifier) {
+	qualifier := meta.NewDeclId().Put("func", pkgImportPath, pkgName, obj.Name()).Finish()
+
+	if table.HasDeclaration(qualifier) {
 		return qualifier, nil
 	}
 
 	loc := meta.NewLocation(pos.Filename, pos.Line, pos.Column)
-
 
 	s := findTypeComment(fset, obj.Pos())
 	annotations, err := annotation.Parse(s)
@@ -298,23 +294,21 @@ func putFunc(table *meta.Table, fset *parseCtx, obj *types.Func) (meta.Qualifier
 		return "", err
 	}
 
-	table.PutType(qualifier, meta.Type{
-		Named: &meta.Named{
-			Location:    loc,
-			Doc:         s,
-			Annotations: wrapAnnotations(loc, annotations),
-			Underlying:  uQual,
-			Name:        obj.Name(),
-		},
+	table.PutNamedDeclaration(pkgImportPath, pkgName, qualifier, &meta.Named{
+		Location:    loc,
+		Doc:         s,
+		Annotations: wrapAnnotations(loc, annotations),
+		Underlying:  uQual,
+		Name:        obj.Name(),
 	})
 
 	return qualifier, nil
 }
 
-func putInterface(table *meta.Table, fset *parseCtx, obj *types.Interface) (meta.Qualifier, error) {
+func putInterface(table *meta.Table, fset *parseCtx, obj *types.Interface) (meta.DeclId, error) {
 	res := &meta.Interface{}
 
-	hasher := sha256.New()
+	builder := meta.NewDeclId()
 	for i := 0; i < obj.NumMethods(); i++ {
 		methodQualifier, err := putFunc(table, fset, obj.Method(i))
 		if err != nil {
@@ -322,7 +316,7 @@ func putInterface(table *meta.Table, fset *parseCtx, obj *types.Interface) (meta
 		}
 
 		res.AllMethods = append(res.AllMethods, methodQualifier)
-		hasher.Write([]byte(methodQualifier))
+		builder.Put(methodQualifier)
 	}
 
 	for i := 0; i < obj.NumEmbeddeds(); i++ {
@@ -331,57 +325,96 @@ func putInterface(table *meta.Table, fset *parseCtx, obj *types.Interface) (meta
 			return "", err
 		}
 		res.Embeddeds = append(res.Embeddeds, typeQualifier)
-		hasher.Write([]byte(typeQualifier))
+		builder.Put(typeQualifier)
 	}
 
-	q := meta.NewQualifier("", "", hex.EncodeToString(hasher.Sum(nil)[:8]))
+	q := meta.NewDeclId().Put("interface").Finish()
 
-	table.PutType(q, meta.Type{
+	table.PutDeclaration(q, meta.Type{
 		Interface: res,
 	})
 
 	return q, nil
 }
 
-func putSlice(table *meta.Table, fset *parseCtx, obj *types.Slice) (meta.Qualifier, error) {
+func putSlice(table *meta.Table, fset *parseCtx, obj *types.Slice) (meta.DeclId, error) {
 	tQual, err := putType(table, fset, obj.Elem())
 	if err != nil {
 		return "", err
 	}
 
 	res := &meta.Slice{
-		TypeId: tQual,
+		DeclId: tQual,
 	}
 
-	q := meta.NewQualifier("", "", "[]"+sanitizeQualifierStr(res.TypeId))
+	q := meta.NewDeclId().Put("slice", res.DeclId).Finish()
 
-	table.PutType(q, meta.Type{
+	table.PutDeclaration(q, meta.Type{
 		Slice: res,
 	})
 
 	return q, nil
 }
 
-func sanitizeQualifierStr(q meta.Qualifier) string {
-	return strings.ReplaceAll(q.String(), "|", "_")
-}
+func putBasic(table *meta.Table, fset *parseCtx, obj *types.Basic) (meta.DeclId, error) {
+	myKind := meta.BasicKind("")
+	switch obj.Kind() {
+	case types.Bool:
+		myKind = meta.Bool
+	case types.Int:
+		myKind = meta.Int
+	case types.Int8:
+		myKind = meta.Int8
+	case types.Int16:
+		myKind = meta.Int16
+	case types.Int32:
+		myKind = meta.Int32
+	case types.Int64:
+		myKind = meta.Int64
+	case types.Uint:
+		myKind = meta.Uint
+	case types.Uint8:
+		myKind = meta.Uint8
+	case types.Uint16:
+		myKind = meta.Uint16
+	case types.Uint32:
+		myKind = meta.Uint32
+	case types.Uint64:
+		myKind = meta.Uint64
+	case types.Uintptr:
+		myKind = meta.Uintptr
+	case types.Float32:
+		myKind = meta.Float32
+	case types.Float64:
+		myKind = meta.Float64
+	case types.Complex64:
+		myKind = meta.Complex64
+	case types.Complex128:
+		myKind = meta.Complex128
+	case types.String:
+		myKind = meta.String
+	case types.UnsafePointer:
+		myKind = meta.UnsafePointer
+	default:
+		panic("not implemented: basic type " + strconv.Itoa(int(obj.Kind())))
 
-func putBasic(table *meta.Table, fset *parseCtx, obj *types.Basic) (meta.Qualifier, error) {
-	kind := meta.BasicKind(obj.Kind())
-	qualifer := meta.NewQualifier("", "", kind.String())
-	if table.HasType(qualifer) {
-		return qualifer, nil
 	}
-	res := &meta.Basic{Kind: kind} //TODO better switch/case than to rely on internals
 
-	table.PutType(qualifer, meta.Type{
+	kind := myKind
+	did := meta.NewDeclId().Put("basic", kind.String()).Finish()
+	if table.HasDeclaration(did) {
+		return did, nil
+	}
+	res := &meta.Basic{Kind: kind}
+
+	table.PutDeclaration(did, meta.Type{
 		Basic: res,
 	})
 
-	return qualifer, nil
+	return did, nil
 }
 
-func putArray(table *meta.Table, fset *parseCtx, obj *types.Array) (meta.Qualifier, error) {
+func putArray(table *meta.Table, fset *parseCtx, obj *types.Array) (meta.DeclId, error) {
 	tQual, err := putType(table, fset, obj.Elem())
 	if err != nil {
 		return "", err
@@ -389,19 +422,19 @@ func putArray(table *meta.Table, fset *parseCtx, obj *types.Array) (meta.Qualifi
 
 	res := &meta.Array{
 		Len:    obj.Len(),
-		TypeID: tQual,
+		DeclId: tQual,
 	}
 
-	q := meta.NewQualifier("", "", "["+strconv.Itoa(int(obj.Len()))+"]"+sanitizeQualifierStr(res.TypeID))
+	q := meta.NewDeclId().Put("array", int(obj.Len()), res.DeclId).Finish()
 
-	table.PutType(q, meta.Type{
+	table.PutDeclaration(q, meta.Type{
 		Array: res,
 	})
 
 	return q, nil
 }
 
-func putPointer(table *meta.Table, fset *parseCtx, pointer *types.Pointer) (meta.Qualifier, error) {
+func putPointer(table *meta.Table, fset *parseCtx, pointer *types.Pointer) (meta.DeclId, error) {
 	baseQual, err := putType(table, fset, pointer.Elem())
 	if err != nil {
 		return "", err
@@ -409,17 +442,18 @@ func putPointer(table *meta.Table, fset *parseCtx, pointer *types.Pointer) (meta
 
 	res := &meta.Pointer{Base: baseQual}
 
-	q := meta.NewQualifier("", "", "*"+sanitizeQualifierStr(res.Base))
-	table.PutType(q, meta.Type{
+	q := meta.NewDeclId().Put("ptr", res.Base).Finish()
+	table.PutDeclaration(q, meta.Type{
 		Pointer: res,
 	})
 
 	return q, nil
 }
 
-func putStruct(table *meta.Table, fset *parseCtx, strct *types.Struct) (meta.Qualifier, error) {
+func putStruct(table *meta.Table, fset *parseCtx, strct *types.Struct) (meta.DeclId, error) {
+	builder := meta.NewDeclId()
+	builder.Put("struct")
 	res := &meta.Struct{}
-	hasher := sha256.New()
 	for i := 0; i < strct.NumFields(); i++ {
 		// TODO what about the tags? this should be a feature of the named declaration?
 		f := strct.Field(i)
@@ -431,18 +465,15 @@ func putStruct(table *meta.Table, fset *parseCtx, strct *types.Struct) (meta.Qua
 		}
 		p := meta.Param{
 			Name:   f.Name(),
-			TypeId: pQual,
+			DeclId: pQual,
 		}
 		res.Fields = append(res.Fields, p)
-
-		hasher.Write([]byte((p.Name)))
-		hasher.Write([]byte((p.TypeId)))
-		hasher.Write([]byte(tag))
+		builder.Put(p.Name, p.DeclId, tag)
 	}
 
-	q := meta.NewQualifier("", "", hex.EncodeToString(hasher.Sum(nil)[:8]))
+	q := builder.Finish()
 
-	table.PutType(q, meta.Type{
+	table.PutDeclaration(q, meta.Type{
 		Struct: res,
 	})
 
@@ -513,7 +544,7 @@ func findTypeComment(ctx *parseCtx, pos token.Pos) string {
 			return true
 		})
 	}
-	if !done{
+	if !done {
 		return ""
 	}
 
@@ -531,28 +562,28 @@ func findTypeComment(ctx *parseCtx, pos token.Pos) string {
 	return s
 }
 
-func putNamedType(table *meta.Table, fset *parseCtx, obj *types.Named) (meta.Qualifier, error) {
+func putNamedType(table *meta.Table, fset *parseCtx, obj *types.Named) (meta.DeclId, error) {
 
 	named := obj.Obj()
 	pos := fset.fset.Position(named.Pos())
-	var qualifier meta.Qualifier
+	pkgImportPath := ""
+	pkgName := ""
+
 	if named.Pkg() != nil {
-		qualifier = meta.NewQualifier(named.Pkg().Path(), named.Pkg().Name(), named.Name())
-	} else {
-		// package less named types are from universe, like error
-		qualifier = meta.NewQualifier("", "", named.Name())
+		pkgImportPath = named.Pkg().Path()
+		pkgName = named.Pkg().Name()
 	}
 
-	if table.HasType(qualifier) {
+	qualifier := meta.NewDeclId().Put("func", pkgImportPath, pkgName, named.Name()).Finish()
+
+	if table.HasDeclaration(qualifier) {
 		return qualifier, nil
 	}
 
 	// fill in some dummy type, to avoid endless recursion
-	table.PutType(qualifier, meta.Type{})
+	table.PutDeclaration(qualifier, meta.Type{})
 
 	loc := meta.NewLocation(pos.Filename, pos.Line, pos.Column)
-
-
 
 	s := findTypeComment(fset, named.Pos())
 	annotations, err := annotation.Parse(s)
@@ -581,7 +612,7 @@ func putNamedType(table *meta.Table, fset *parseCtx, obj *types.Named) (meta.Qua
 		if structType, ok := typeSpec.Type.(*ast.StructType); ok {
 			if structType.Fields != nil {
 				// enrich the field param information
-				strct := table.Types[myUnderlyingType].Struct
+				strct := table.Declarations[myUnderlyingType].Struct
 				for _, field := range structType.Fields.List {
 					for _, fieldName := range field.Names {
 						for i, strctField := range strct.Fields {
@@ -621,9 +652,7 @@ func putNamedType(table *meta.Table, fset *parseCtx, obj *types.Named) (meta.Qua
 		res.Methods = append(res.Methods, mQual)
 	}
 
-	table.PutType(qualifier, meta.Type{
-		Named: res,
-	})
+	table.PutNamedDeclaration(pkgImportPath, pkgName, qualifier, res)
 
 	return qualifier, nil
 }

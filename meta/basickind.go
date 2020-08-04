@@ -14,33 +14,31 @@
 
 package meta
 
-import "strconv"
-
 // BasicKind describes the kind of basic type.
-type BasicKind int
+type BasicKind string
 
 const (
-	Invalid BasicKind = iota // type is invalid
+	Invalid BasicKind = "" // type is invalid
 
 	// predeclared types
-	Bool
-	Int
-	Int8
-	Int16
-	Int32
-	Int64
-	Uint
-	Uint8
-	Uint16
-	Uint32
-	Uint64
-	Uintptr
-	Float32
-	Float64
-	Complex64
-	Complex128
-	String
-	UnsafePointer
+	Bool          = "bool"
+	Int           = "int"
+	Int8          = "int8"
+	Int16         = "int16"
+	Int32         = "int32"
+	Int64         = "int64"
+	Uint          = "uint"
+	Uint8         = "uint8"
+	Uint16        = "uint16"
+	Uint32        = "uint32"
+	Uint64        = "uint64"
+	Uintptr       = "uintptr"
+	Float32       = "float32"
+	Float64       = "float64"
+	Complex64     = "complex64"
+	Complex128    = "complex128"
+	String        = "string"
+	UnsafePointer = "unsafe.Pointer"
 
 	// aliases
 	Byte = Uint8
@@ -49,46 +47,7 @@ const (
 
 // String returns the universe name of the basic kind
 func (b BasicKind) String() string {
-	switch b {
-	case Bool:
-		return "bool"
-	case Int:
-		return "int"
-	case Int8:
-		return "int8"
-	case Int16:
-		return "int16"
-	case Int32:
-		return "int32"
-	case Int64:
-		return "int64"
-	case Uint:
-		return "uint"
-	case Uint8:
-		return "uint8"
-	case Uint16:
-		return "uint16"
-	case Uint32:
-		return "uint32"
-	case Uint64:
-		return "uint64"
-	case Uintptr:
-		return "uintptr"
-	case Float32:
-		return "float32"
-	case Float64:
-		return "float64"
-	case Complex64:
-		return "complex64"
-	case Complex128:
-		return "complex128"
-	case String:
-		return "string"
-	case UnsafePointer:
-		return "unsafe.Pointer"
-	default:
-		return "unknown-" + strconv.Itoa(int(b))
-	}
+	return string(b)
 }
 
 func (b BasicKind) IsFloat() bool {
