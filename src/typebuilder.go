@@ -14,10 +14,19 @@ type TypeBuilder struct {
 	fields   []*FieldBuilder
 }
 
-func NewTypeBuilder(parent *FileBuilder) *TypeBuilder {
+func NewType() *TypeBuilder {
+	return &TypeBuilder{}
+}
+
+func NewStruct(name string) *TypeBuilder {
 	return &TypeBuilder{
-		parent: parent,
+		name:     name,
+		isStruct: true,
 	}
+}
+
+func (b *TypeBuilder) onAttach(parent *FileBuilder) {
+	b.parent = parent
 }
 
 func (b *TypeBuilder) SetName(name string) *TypeBuilder {
@@ -30,18 +39,20 @@ func (b *TypeBuilder) SetDoc(doc string) *TypeBuilder {
 	return b
 }
 
-func (b *TypeBuilder) AddField(f func(f *FieldBuilder)) *TypeBuilder {
+func (b *TypeBuilder) AddFields(fields ...*FieldBuilder) *TypeBuilder {
 	b.isStruct = true
-	builder := NewFieldBuilder(b)
-	b.fields = append(b.fields, builder)
-	f(builder)
+	b.fields = append(b.fields, fields...)
+	for _, f := range fields {
+		f.onAttach(b)
+	}
 	return b
 }
 
-func (b *TypeBuilder) AddMethod(f func(f *FuncBuilder)) *TypeBuilder {
-	fb := NewFuncBuilder(b)
-	f(fb)
-	b.methods = append(b.methods, fb)
+func (b *TypeBuilder) AddMethods(methods ...*FuncBuilder) *TypeBuilder {
+	b.methods = append(b.methods, methods...)
+	for _, m := range methods {
+		m.onAttach(b)
+	}
 	return b
 }
 
@@ -62,7 +73,7 @@ func (b *TypeBuilder) Emit(w Writer) {
 		w.Printf("\n")
 	}
 
-	for _,method := range b.methods{
+	for _, method := range b.methods {
 		method.Emit(w)
 	}
 }

@@ -1,18 +1,73 @@
 package src
 
+import "strings"
+
 type FuncBuilder struct {
-	parent  *TypeBuilder
-	doc     string
-	name    string
-	recName string
+	parent        *TypeBuilder
+	doc           string
+	name          string
+	recName       string
+	isPtrReceiver bool
+	params        []*Parameter
+	results       []*Parameter
+	body          []*Block
 }
 
-func NewFuncBuilder(parent *TypeBuilder) *FuncBuilder {
-	return &FuncBuilder{parent: parent}
+func NewFunc(name string) *FuncBuilder {
+	b := &FuncBuilder{}
+	b.SetName(name)
+	return b
+}
+
+func (b *FuncBuilder) AddParams(params ...*Parameter) *FuncBuilder {
+	b.params = append(b.params, params...)
+	for _, p := range params {
+		p.onAttach(b)
+	}
+
+	return b
+}
+
+func (b *FuncBuilder) AddResults(params ...*Parameter) *FuncBuilder {
+	b.results = append(b.results, params...)
+	for _, p := range params {
+		p.onAttach(b)
+	}
+
+	return b
+}
+
+func (b *FuncBuilder) AddBody(blocks ...*Block) *FuncBuilder {
+	b.body = append(b.body, blocks...)
+	for _, block := range blocks {
+		block.onAttach(b)
+	}
+	return b
+}
+
+func (b *FuncBuilder) File() *FileBuilder {
+	return b.parent.File()
+}
+
+func (b *FuncBuilder) onAttach(parent *TypeBuilder) {
+	b.parent = parent
 }
 
 func (b *FuncBuilder) SetName(name string) *FuncBuilder {
 	b.name = name
+	if b.recName == "" && len(name) > 0 {
+		b.recName = strings.ToLower(name[0:1])
+	}
+	return b
+}
+
+func (b *FuncBuilder) SetReceiverName(name string) *FuncBuilder {
+	b.recName = name
+	return b
+}
+
+func (b *FuncBuilder) SetPointerReceiver(isPtrRec bool) *FuncBuilder {
+	b.isPtrReceiver = isPtrRec
 	return b
 }
 
@@ -25,14 +80,30 @@ func (b *FuncBuilder) Emit(w Writer) {
 	emitDoc(w, b.name, b.doc)
 	w.Printf("func ")
 	if b.parent != nil {
-		if b.recName == "" {
-			b.recName = "_self" //TODO
+		ptrRec := ""
+		if b.isPtrReceiver {
+			ptrRec = "*"
 		}
-		w.Printf("(%s %s) ", b.recName, b.name)
+		w.Printf("(%s %s%s) ", b.recName, ptrRec, b.name)
 	}
 
 	w.Printf("%s(", b.name)
+	for _, p := range b.params {
+		p.Emit(w)
+		w.Printf(",")
+	}
 	w.Printf(")")
+
+	w.Printf("(")
+	for _, p := range b.results {
+		p.Emit(w)
+		w.Printf(",")
+	}
+	w.Printf(")")
+
 	w.Printf("{\n")
+	for _, block := range b.body {
+		block.Emit(w)
+	}
 	w.Printf("}\n")
 }

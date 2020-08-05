@@ -33,22 +33,36 @@ func TestNewProject(t *testing.T) {
 	//fmt.Printf("%s\n", prj.table.String())
 
 	mod.ForEachTypeAnnotation("ee.Repo", func(a meta.Annotation, named *meta.Named) {
-		mod.NewType(func(t *src.TypeBuilder) {
-			t.SetDoc("... is a generated implementation of a MySQL repository.\nThe name is autofilled for your\nconvenience:\n   a pre-formatted text.").
-				SetName("MySQL" + named.Name + "Impl").
-				AddField(func(f *src.FieldBuilder) {
-					f.SetName("dbx").SetType(".int")
-				}).
-				AddField(func(f *src.FieldBuilder) {
-					f.SetDoc("...contains things about\nstuff.")
-					f.SetName("Stuff").SetType("github.com/worldiety/golangee/test.Blub")
-				}).
-				AddMethod(func(f *src.FuncBuilder) {
-					f.SetDoc("...makes some noise.")
-					f.SetName("DoJob")
-				})
-
-		})
+		str := src.NewFile("gentest").
+			SetGeneratorName("unittest").
+			SetPackageDoc("Package gentest is here to test.").
+			AddTypes(src.NewStruct("MySQL"+named.Name+"Impl").
+				SetDoc("... is a generated implementation of a MySQL repository.\nThe name is autofilled for your\nconvenience:\n   a pre-formatted text.").
+				AddFields(
+					src.NewField("dbx", src.NewTypeDecl("int")),
+					src.NewField("Stuff", src.NewTypeDecl("github.com/worldiety/golangee/test.Blub")).
+						SetDoc("...contains things about\nstuff."),
+					src.NewField("cache", src.NewSliceDecl(src.NewTypeDecl("string"))),
+					src.NewField("lookup", src.NewMapDecl(src.NewTypeDecl("float64"), src.NewPointerDecl(src.NewTypeDecl("github.com/worldiety/golangee/test.Bla")))),
+				).
+				AddMethods(
+					src.NewFunc("DoJob").
+						SetDoc("...makes some noise.").
+						SetPointerReceiver(true).
+						AddParams(
+							src.NewParameter("in", src.NewTypeDecl("io.Reader")),
+						).
+						AddResults(
+							src.NewParameter("", src.NewTypeDecl("io.Writer")),
+							src.NewParameter("", src.NewErrorDecl()),
+						).
+						AddBody(src.NewBlock().
+							AddLine("var x ", src.NewTypeDecl("io.Duffer")).
+							AddLine("return x,nil"),
+						),
+				),
+			).String()
+		fmt.Println(str)
 	})
 
 }
