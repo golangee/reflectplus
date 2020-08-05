@@ -13,6 +13,10 @@ func NewParameter(name string, decl *TypeDecl) *Parameter {
 	}
 }
 
+func (p *Parameter) Decl() *TypeDecl {
+	return p.decl
+}
+
 func (p *Parameter) onAttach(parent FileProvider) {
 	p.parent = parent
 	p.decl.onAttach(parent)

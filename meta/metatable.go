@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash"
+	"sort"
 	"strconv"
 )
 
@@ -77,6 +78,20 @@ func NewTable() *Table {
 	}
 
 	return t
+}
+
+// DeclIds returns a stable and sorted slice of declarations ids
+func (t *Table) DeclIds() []DeclId {
+	tmp := make([]DeclId, 0, len(t.Declarations))
+	for k := range t.Declarations {
+		tmp = append(tmp, k)
+	}
+
+	sort.Slice(tmp, func(i, j int) bool {
+		return tmp[i] < tmp[j]
+	})
+
+	return tmp
 }
 
 func (t *Table) HasDeclaration(q DeclId) bool {

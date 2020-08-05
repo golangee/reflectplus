@@ -37,6 +37,10 @@ func (b *FuncBuilder) AddResults(params ...*Parameter) *FuncBuilder {
 	return b
 }
 
+func (b *FuncBuilder) Results() []*Parameter {
+	return b.results
+}
+
 func (b *FuncBuilder) AddBody(blocks ...*Block) *FuncBuilder {
 	b.body = append(b.body, blocks...)
 	for _, block := range blocks {
@@ -51,13 +55,14 @@ func (b *FuncBuilder) File() *FileBuilder {
 
 func (b *FuncBuilder) onAttach(parent *TypeBuilder) {
 	b.parent = parent
+
+	if b.recName == "" && len(parent.name) > 0 {
+		b.recName = strings.ToLower(parent.name[0:1])
+	}
 }
 
 func (b *FuncBuilder) SetName(name string) *FuncBuilder {
 	b.name = name
-	if b.recName == "" && len(name) > 0 {
-		b.recName = strings.ToLower(name[0:1])
-	}
 	return b
 }
 
@@ -84,7 +89,7 @@ func (b *FuncBuilder) Emit(w Writer) {
 		if b.isPtrReceiver {
 			ptrRec = "*"
 		}
-		w.Printf("(%s %s%s) ", b.recName, ptrRec, b.name)
+		w.Printf("(%s %s%s) ", b.recName, ptrRec, b.parent.name)
 	}
 
 	w.Printf("%s(", b.name)

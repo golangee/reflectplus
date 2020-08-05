@@ -75,5 +75,6 @@ func (b *TypeBuilder) Emit(w Writer) {
 
 	for _, method := range b.methods {
 		method.Emit(w)
+		w.Printf("\n")
 	}
 }

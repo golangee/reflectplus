@@ -27,10 +27,9 @@ import (
 	"golang.org/x/tools/go/packages"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 )
-
-
 
 type parseCtx struct {
 	fset  *token.FileSet
@@ -115,7 +114,10 @@ func NewProject(opts Options, dir string, mods mod.Modules) (*Project, error) {
 
 	}
 
-	return &Project{table: table}, nil
+	prj := &Project{table: table}
+	prj.importTable = prj.table.CreateImportTable()
+
+	return prj, nil
 }
 
 func putType(table *meta.Table, fset *parseCtx, typ types.Type) (meta.DeclId, error) {
@@ -309,6 +311,7 @@ func putInterface(table *meta.Table, fset *parseCtx, obj *types.Interface) (meta
 	res := &meta.Interface{}
 
 	builder := meta.NewDeclId()
+	builder.Put("interface")
 	for i := 0; i < obj.NumMethods(); i++ {
 		methodQualifier, err := putFunc(table, fset, obj.Method(i))
 		if err != nil {
@@ -328,7 +331,7 @@ func putInterface(table *meta.Table, fset *parseCtx, obj *types.Interface) (meta
 		builder.Put(typeQualifier)
 	}
 
-	q := meta.NewDeclId().Put("interface").Finish()
+	q := builder.Finish()
 
 	table.PutDeclaration(q, meta.Type{
 		Interface: res,
@@ -559,7 +562,7 @@ func findTypeComment(ctx *parseCtx, pos token.Pos) string {
 
 	s += actualDoc
 
-	return s
+	return strings.TrimSpace(s)
 }
 
 func putNamedType(table *meta.Table, fset *parseCtx, obj *types.Named) (meta.DeclId, error) {
