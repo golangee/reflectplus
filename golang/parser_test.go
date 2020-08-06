@@ -22,9 +22,12 @@ import (
 )
 
 func TestNewProject(t *testing.T) {
-	opts := Options{}
+	opts := Options{
+		Dir:      "/Users/tschinke/git/github.com/golangee/reflectplus/internal/test",
+		Patterns: []string{"github.com/golangee/..."},
+	}
 	//mods, err := NewProject(opts, "/Users/tschinke/git/github.com/worldiety/mercurius/", nil)
-	mod, err := NewProject(opts, "/Users/tschinke/git/github.com/golangee/reflectplus/internal/test", nil)
+	mod, err := NewProject(opts)
 	if err != nil {
 		fmt.Println(err)
 		t.Fatal(err)

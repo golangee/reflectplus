@@ -1,7 +1,9 @@
 # reflectplus [![GoDoc](https://godoc.org/github.com/golangee/reflectplus?status.svg)](http://godoc.org/github.com/golangee/reflectplus)
 The missing reflection bits for go. This library parses your go source code and generates
-reflection information at compile time, which can be inspected later at runtime. This can be also used
-for code generation. 
+reflection information at compile time, which can be inspected later at generation or runtime. It provides also
+a some small convenience helpers for code generation, e.g. to implement an interface in just 5 lines of code.
+
+It is based on the [go-x-tools](https://godoc.org/golang.org/x/tools/go/packages).
 
 Using this library, you can work around the following issues:
 * inspect function parameter names: https://github.com/golang/go/issues/12384
@@ -17,20 +19,19 @@ is not module ready.
 * https://github.com/cosmos72/gomacro, fancy but does not provide go type information.
 * go-doc parser: https://golang.org/pkg/go/doc/ (is used)
 * go-ast parser: https://golang.org/pkg/go/ast/ (is used)
+* go-package resolver: https://godoc.org/golang.org/x/tools/go/packages (is used)
 
 ## roadmap
-- [x] interfaces
-- [x] structs
-- [x] package level functions
+- [x] any named type declaration
+- [ ] represent underlying types
+- [ ] package level functions
 - [x] annotations
 - [x] keep comments
-- [x] struct constructors
+- [ ] struct constructors
 - [ ] annotation validation at parsing time
 - [ ] package level variables
 - [ ] package level constants
-- [ ] type aliases
-- [ ] other type definitions
-- [x] interface proxy (stub code generation)
+- [ ] interface proxy (stub code generation)
 - [ ] private functions, methods, types (will never be supported)
 - [x] multiline annotation values
 
@@ -64,35 +65,6 @@ type MyRepo interface{
 }
 ```
 
-## interface proxy support
-The reflection and proxy support is just as you would have expected it:
-
-```go
-package main
-
-import (
-    "my/module/pckage"
-    "fmt"
-    "github.com/golangee/reflectplus"
-    _ "my/module"
-)
-
-func main(){
-    iface := reflectplus.FindInterface("my/module/pckage","MyInterface")
-    fmt.Println(iface)
-
-    proxy, err := reflectplus.NewProxy("my/module/pckage", "MyInterface", func(method string, args ...interface{}) []interface{} {
-        fmt.Printf("hello %s\n", method)
-        return nil
-    })
-    if err != nil {
-        panic(err)
-    }
-    proxy.(pckage.MyInterface).MyMethod()
-}
-
-
-```
 
 ## usage
 
@@ -107,44 +79,56 @@ import (
 )
 
 func main() {
-	reflectplus.Must(reflectplus.Generate("../.."))
+    prj, err := reflectplus.ParseModule()
+	//...
 }
 
-# import dependency
-go get github.com/golangee/reflectplus
-
-# go generate
-go generate ./...
-
-# the generated file is my/module/reflect.gen.go, you need to import it, to run its init method
-# e.g. in my/module/cmd/app/main.go
-package main
-
-import _ "github.com/my/package"
-
-func main(){
-//...
-}
 ```
 
 ### standalone
 ```bash
 GO111MODULE=off && go get -u github.com/golangee/reflectplus/cmd/reflectplus
 cd my/module
-reflectplus
+reflectplus -help
 ```
 
 ## FAQ
 ### Does it work in go path?
-This is a legacy configuration and not tested, so probably not.
+That is not supported.
 
 ### Does it work with multiple modules?
-TODO: this will be currently changed, and you only use it in your top most project through
-go generate
+Yes, it scans and loads the entire dependency tree and if given, it represents exactly those packages, which
+you have specified in the path pattern.
 
-Well it depends, the generated reflection metadata is always included, if the maintainer has included the *reflectplus*
-dependency. You also have to ensure to load the package (currently only the module import path) containing the
-init method which registers the additional reflection information and the interface proxy factories.
+### How to implement an interface?
+```go
+    opts := Options{
+		Dir:      "/Users/tschinke/git/github.com/golangee/reflectplus/internal/test",
+		Patterns: []string{"github.com/golangee/..."},
+	}
+	mod, err := NewProject(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+    mod.ForEachInterface(func(pkg *meta.Package, id meta.DeclId, named *meta.Named, iface *meta.Interface) {
+		fmt.Println("iface ", pkg.Path, "=>", named.Name)
+		impl, err := mod.Implement(id, func(ctx MethodContext) {
+			if len(ctx.Method.Results()) > 0 {
+				ctx.Method.AddBody(src.NewBlock().
+					Var("x", ctx.Method.Results()[0].Decl()))
+			}
+		})
+
+		if err != nil {
+			t.Fatal(err)
+		}
+    
+        // print the generated source code
+		fmt.Println(src.NewFile("test").AddTypes(impl).String())
+	})
+
+```
 
 
 ## nomenclature and the go type system

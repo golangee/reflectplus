@@ -12,6 +12,10 @@ type Project struct {
 	importTable map[meta.DeclId]meta.PkgId
 }
 
+func (p *Project) String() string {
+	return p.table.String()
+}
+
 func (p *Project) ForEachTypeAnnotation(annotationName string, f func(a meta.Annotation, named *meta.Named)) {
 	for _, v := range p.table.Declarations {
 		if v.Named != nil {

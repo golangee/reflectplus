@@ -16,12 +16,40 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"github.com/golangee/reflectplus"
+	"github.com/golangee/reflectplus/golang"
+	"log"
+	"strings"
 )
 
 func main() {
-	dir := flag.String("dir", ".", "the directory to scan")
+	dir := flag.String("dir", "", "the directory to scan")
+	patterns := flag.String("patterns", "", "the path patterns to parse, e.g. github.com/myproject/mypath/...;github.com/other/path/...")
+	help := flag.Bool("help", false, "shows this help.")
 	flag.Parse()
 
-	reflectplus.Must(reflectplus.Generate(*dir))
+	if *help {
+		fmt.Println("reflectplus parses the go code at your fingertips and represents a subset of it in json form.")
+		flag.PrintDefaults()
+		return
+	}
+
+	var prj *golang.Project
+	var err error
+
+	if *dir == "" && *patterns == "" {
+		prj, err = reflectplus.ParseModule()
+	} else {
+		prj, err = reflectplus.Parse(golang.Options{
+			Dir:      *dir,
+			Patterns: strings.Split(*patterns, ";"),
+		})
+	}
+
+	if err != nil{
+		log.Fatal(err)
+	}
+
+	fmt.Println(prj.String())
 }

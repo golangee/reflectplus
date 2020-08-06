@@ -14,3 +14,43 @@
 
 // reflectplus generates and embedds the missing pieces in the go reflection system.
 package reflectplus
+
+import (
+	"github.com/golangee/reflectplus/golang"
+	"github.com/golangee/reflectplus/internal/mod"
+	"os"
+)
+
+// Parse loads initiates the tooling in the given folders and loads and parses all given paths from the pattern
+// including all related dependencies, including declaration from the standard library.
+func Parse(opts golang.Options) (*golang.Project, error) {
+	return golang.NewProject(opts)
+}
+
+// ParseModule can be invoked from any subdirectory within a valid go module and parses the module including all
+// of its dependencies.
+func ParseModule() (*golang.Project, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+
+	modules, err := mod.List(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	var rootDir string
+	var patterns []string
+	for _, module := range modules {
+		if module.Main {
+			rootDir = module.Dir
+		}
+		patterns = append(patterns, module.Path)
+	}
+
+	return Parse(golang.Options{
+		Dir:      rootDir,
+		Patterns: patterns,
+	})
+}

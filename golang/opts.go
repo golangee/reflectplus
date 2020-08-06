@@ -14,9 +14,12 @@
 
 package golang
 
-// Options for the go ast parser
+// Options for the reflectplus parser
 type Options struct {
-	// Excluded contains regex expressions which are applied on each path and matching paths are
-	// not parsed at all.
-	Excluded []string
+	// Dir is the directory in which to run the build system's query tool that provides information about the packages.
+	// If Dir is empty, the tool is run in the current directory.
+	Dir string
+
+	// Patterns contains the root packages to parse, e.g. github.com/golangee/...
+	Patterns []string
 }

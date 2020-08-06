@@ -17,7 +17,6 @@ package golang
 import (
 	"fmt"
 	"github.com/golangee/reflectplus/internal/annotation"
-	"github.com/golangee/reflectplus/internal/mod"
 	"github.com/golangee/reflectplus/internal/tag"
 	"github.com/golangee/reflectplus/meta"
 	"go/ast"
@@ -36,7 +35,9 @@ type parseCtx struct {
 	files []*ast.File
 }
 
-func NewProject(opts Options, dir string, mods mod.Modules) (*Project, error) {
+func NewProject(opts Options) (*Project, error) {
+	fmt.Println("dir:", opts.Dir)
+	fmt.Println("patterns:", opts.Patterns)
 	table := meta.NewTable()
 	parseCtx := &parseCtx{}
 	mtx := sync.Mutex{}
@@ -47,7 +48,7 @@ func NewProject(opts Options, dir string, mods mod.Modules) (*Project, error) {
 			fmt.Printf(format, args...)
 			fmt.Println()
 		},
-		Dir:        dir,
+		Dir:        opts.Dir,
 		Env:        nil,
 		BuildFlags: nil,
 		Fset:       token.NewFileSet(),
@@ -71,7 +72,7 @@ func NewProject(opts Options, dir string, mods mod.Modules) (*Project, error) {
 	parseCtx.fset = cfg.Fset
 
 	//pkgs, err := packages.Load(cfg, "github.com/worldiety/mercurius/...")
-	pkgs, err := packages.Load(cfg, "github.com/golangee/...")
+	pkgs, err := packages.Load(cfg, opts.Patterns...)
 	if err != nil {
 		return nil, err
 	}
