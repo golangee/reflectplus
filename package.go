@@ -17,7 +17,7 @@ package reflectplus
 
 import (
 	"github.com/golangee/reflectplus/golang"
-	"github.com/golangee/reflectplus/internal/mod"
+	"github.com/golangee/reflectplus/mod"
 	"os"
 )
 
