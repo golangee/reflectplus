@@ -91,4 +91,13 @@ func TestNewProject(t *testing.T) {
 		fmt.Println(src.NewFile("test").AddTypes(impl).String())
 	})
 
+	fmt.Println(
+		src.NewFile("asd").
+			AddTypes(src.NewStruct("Abc").
+				AddFields(
+					src.NewField("Hello", src.NewTypeDecl("int")).
+						AddTag("json", "hello", "omitempty").
+						AddTag("xml", "xml_hello"),
+				)).String(),
+	)
 }

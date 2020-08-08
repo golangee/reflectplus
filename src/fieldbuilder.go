@@ -1,10 +1,16 @@
 package src
 
+import (
+	"strconv"
+	"strings"
+)
+
 type FieldBuilder struct {
 	parent *TypeBuilder
 	doc    string
 	name   string
 	decl   *TypeDecl
+	tags   map[string][]string
 }
 
 func NewField(name string, typeDecl *TypeDecl) *FieldBuilder {
@@ -39,10 +45,35 @@ func (b *FieldBuilder) SetType(t *TypeDecl) *FieldBuilder {
 	return b
 }
 
+func (b *FieldBuilder) AddTag(key string, values ...string) *FieldBuilder {
+	if b.tags == nil {
+		b.tags = map[string][]string{}
+	}
+
+	vals := b.tags[key]
+	vals = append(vals, values...)
+	b.tags[key] = vals
+
+	return b
+}
+
 func (b *FieldBuilder) Emit(w Writer) {
 	emitDoc(w, b.name, b.doc)
 	w.Printf(b.name)
 	w.Printf(" ")
 	b.decl.Emit(w)
+	if len(b.tags) > 0 {
+		sb := &strings.Builder{}
+		sb.WriteRune('`')
+		for k, v := range b.tags {
+			sb.WriteString(k)
+			sb.WriteRune(':')
+			values := strings.Join(v, ",")
+			sb.WriteString(strconv.Quote(values))
+			sb.WriteRune(' ')
+		}
+		sb.WriteRune('`')
+		w.Printf(sb.String())
+	}
 	w.Printf("\n")
 }
