@@ -51,6 +51,10 @@ func (b *TypeBuilder) Methods() []*FuncBuilder {
 	return b.methods
 }
 
+func (b *TypeBuilder) Fields() []*FieldBuilder {
+	return b.fields
+}
+
 func (b *TypeBuilder) AddFields(fields ...*FieldBuilder) *TypeBuilder {
 	b.isStruct = true
 	b.fields = append(b.fields, fields...)
