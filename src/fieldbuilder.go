@@ -36,6 +36,22 @@ func (b *FieldBuilder) SetName(name string) *FieldBuilder {
 	return b
 }
 
+func (b *FieldBuilder) Name() string {
+	return b.name
+}
+
+func (b *FieldBuilder) Type() *TypeDecl {
+	return b.decl
+}
+
+func (b *FieldBuilder) Doc() string {
+	return b.doc
+}
+
+func (b *FieldBuilder) Tags() map[string][]string {
+	return b.tags
+}
+
 func (b *FieldBuilder) File() *FileBuilder {
 	return b.parent.File()
 }
