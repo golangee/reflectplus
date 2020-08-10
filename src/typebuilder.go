@@ -39,6 +39,18 @@ func (b *TypeBuilder) SetDoc(doc string) *TypeBuilder {
 	return b
 }
 
+func (b *TypeBuilder) Doc() string {
+	return b.doc
+}
+
+func (b *TypeBuilder) Name() string {
+	return b.name
+}
+
+func (b *TypeBuilder) Methods() []*FuncBuilder {
+	return b.methods
+}
+
 func (b *TypeBuilder) AddFields(fields ...*FieldBuilder) *TypeBuilder {
 	b.isStruct = true
 	b.fields = append(b.fields, fields...)

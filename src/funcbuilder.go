@@ -19,6 +19,14 @@ func NewFunc(name string) *FuncBuilder {
 	return b
 }
 
+func (b *FuncBuilder) Name() string {
+	return b.name
+}
+
+func (b *FuncBuilder) Params() []*Parameter {
+	return b.params
+}
+
 func (b *FuncBuilder) AddParams(params ...*Parameter) *FuncBuilder {
 	b.params = append(b.params, params...)
 	for _, p := range params {
