@@ -39,6 +39,10 @@ func (b *FileBuilder) Use(q Qualifier) string {
 		return q.Name()
 	}
 
+	if b == nil {
+		return string(q)
+	}
+
 	if name, has := b.namedImports[q.Path()]; has {
 		return name + "." + q.Name()
 	}
