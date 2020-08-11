@@ -27,3 +27,9 @@ func (p *Parameter) Emit(w Writer) {
 	w.Printf(" ")
 	p.decl.Emit(w)
 }
+
+func (p *Parameter) emitAsVariadic(w Writer) {
+	w.Printf(p.name)
+	w.Printf("...")
+	p.decl.Emit(w)
+}

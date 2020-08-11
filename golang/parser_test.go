@@ -101,7 +101,7 @@ func TestNewProject(t *testing.T) {
 				),
 				src.NewInterface("Yoh").
 					AddMethods(
-						src.NewFunc("hello").AddParams(src.NewParameter("OhMy", src.NewTypeDecl("error"))),
+						src.NewFunc("hello").AddParams(src.NewParameter("OhMy", src.NewTypeDecl("error"))).SetVariadic(true),
 					),
 			).String(),
 	)

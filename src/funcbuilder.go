@@ -11,6 +11,7 @@ type FuncBuilder struct {
 	params        []*Parameter
 	results       []*Parameter
 	body          []*Block
+	variadic      bool
 }
 
 func NewFunc(name string) *FuncBuilder {
@@ -43,6 +44,15 @@ func (b *FuncBuilder) AddResults(params ...*Parameter) *FuncBuilder {
 	}
 
 	return b
+}
+
+func (b *FuncBuilder) SetVariadic(v bool) *FuncBuilder {
+	b.variadic = v
+	return b
+}
+
+func (b *FuncBuilder) Variadic() bool {
+	return b.variadic
 }
 
 func (b *FuncBuilder) Results() []*Parameter {
@@ -92,10 +102,14 @@ func (b *FuncBuilder) SetDoc(doc string) *FuncBuilder {
 func (b *FuncBuilder) Emit(w Writer) {
 	emitDoc(w, b.name, b.doc)
 
-	if b.parent != nil && b.parent.iType == typeInterface{
+	if b.parent != nil && b.parent.iType == typeInterface {
 		w.Printf("%s(", b.name)
-		for _, p := range b.params {
-			p.Emit(w)
+		for i, p := range b.params {
+			if i == len(b.params)-1 && b.variadic {
+				p.emitAsVariadic(w)
+			} else {
+				p.Emit(w)
+			}
 			w.Printf(",")
 		}
 		w.Printf(")")
@@ -106,7 +120,6 @@ func (b *FuncBuilder) Emit(w Writer) {
 			w.Printf(",")
 		}
 		w.Printf(")")
-
 
 		return
 	}
