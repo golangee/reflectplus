@@ -13,6 +13,10 @@ func NewParameter(name string, decl *TypeDecl) *Parameter {
 	}
 }
 
+func (p *Parameter) Name() string {
+	return p.name
+}
+
 func (p *Parameter) Decl() *TypeDecl {
 	return p.decl
 }

@@ -62,7 +62,7 @@ func (e *Block) Check(errName string, msg string, returnParams ...string) *Block
 	e.Add(NewTypeDecl("fmt.Errorf"), `("`, msg, `: %w", `, errName, ")")
 	e.NewLine()
 	e.AddLine("}")
-
+	e.AddLine() //wsl
 	return e
 }
 
