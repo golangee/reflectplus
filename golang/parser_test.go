@@ -98,6 +98,12 @@ func TestNewProject(t *testing.T) {
 					src.NewField("Hello", src.NewTypeDecl("int")).
 						AddTag("json", "hello", "omitempty").
 						AddTag("xml", "xml_hello"),
-				)).String(),
+				),
+				src.NewInterface("Yoh").
+					AddMethods(
+						src.NewFunc("hello").AddParams(src.NewParameter("OhMy", src.NewTypeDecl("error"))),
+					),
+			).String(),
 	)
+
 }

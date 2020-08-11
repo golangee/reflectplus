@@ -91,6 +91,26 @@ func (b *FuncBuilder) SetDoc(doc string) *FuncBuilder {
 
 func (b *FuncBuilder) Emit(w Writer) {
 	emitDoc(w, b.name, b.doc)
+
+	if b.parent != nil && b.parent.iType == typeInterface{
+		w.Printf("%s(", b.name)
+		for _, p := range b.params {
+			p.Emit(w)
+			w.Printf(",")
+		}
+		w.Printf(")")
+
+		w.Printf("(")
+		for _, p := range b.results {
+			p.Emit(w)
+			w.Printf(",")
+		}
+		w.Printf(")")
+
+
+		return
+	}
+
 	w.Printf("func ")
 	if b.parent != nil {
 		ptrRec := ""

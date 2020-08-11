@@ -4,14 +4,22 @@ import (
 	"github.com/golangee/reflectplus/meta"
 )
 
+type internalType int
+
+const (
+	typeBase internalType = iota
+	typeStruct
+	typeInterface
+)
+
 type TypeBuilder struct {
-	parent   *FileBuilder
-	doc      string
-	name     string
-	rhs      *meta.Type
-	isStruct bool
-	methods  []*FuncBuilder
-	fields   []*FieldBuilder
+	parent  *FileBuilder
+	doc     string
+	name    string
+	rhs     *meta.Type
+	iType   internalType
+	methods []*FuncBuilder
+	fields  []*FieldBuilder
 }
 
 func NewType() *TypeBuilder {
@@ -20,8 +28,15 @@ func NewType() *TypeBuilder {
 
 func NewStruct(name string) *TypeBuilder {
 	return &TypeBuilder{
-		name:     name,
-		isStruct: true,
+		name:  name,
+		iType: typeStruct,
+	}
+}
+
+func NewInterface(name string) *TypeBuilder {
+	return &TypeBuilder{
+		name:  name,
+		iType: typeInterface,
 	}
 }
 
@@ -56,7 +71,7 @@ func (b *TypeBuilder) Fields() []*FieldBuilder {
 }
 
 func (b *TypeBuilder) AddFields(fields ...*FieldBuilder) *TypeBuilder {
-	b.isStruct = true
+	b.iType = typeStruct
 	b.fields = append(b.fields, fields...)
 	for _, f := range fields {
 		f.onAttach(b)
@@ -79,18 +94,31 @@ func (b *TypeBuilder) File() *FileBuilder {
 func (b *TypeBuilder) Emit(w Writer) {
 	emitDoc(w, b.name, b.doc)
 	w.Printf("type %s", b.name)
-	if b.isStruct {
+	switch b.iType {
+	case typeStruct:
 		w.Printf(" struct {\n")
 		for _, field := range b.fields {
 			field.Emit(w)
 		}
 		w.Printf("}\n")
-	} else {
+	case typeBase:
 		w.Printf("\n")
+	case typeInterface:
+		w.Printf(" interface {\n")
+
+		for _, method := range b.methods {
+			method.Emit(w)
+			w.Printf("\n")
+		}
+
+		w.Printf("}\n")
 	}
 
-	for _, method := range b.methods {
-		method.Emit(w)
-		w.Printf("\n")
+	if b.iType != typeInterface {
+		for _, method := range b.methods {
+			method.Emit(w)
+			w.Printf("\n")
+		}
 	}
+
 }
