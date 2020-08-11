@@ -79,7 +79,10 @@ func TestNewProject(t *testing.T) {
 			fmt.Println("   ?>", ctx.MethodAnnotations)
 			if len(ctx.Method.Results()) > 0 {
 				ctx.Method.AddBody(src.NewBlock().
-					Var("x", ctx.Method.Results()[0].Decl()))
+					Var("x", ctx.Method.Results()[0].Decl()).
+					Check("myErr", "failed to query", "r", "nil"),
+				)
+
 			}
 
 		})

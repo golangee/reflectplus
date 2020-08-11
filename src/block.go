@@ -48,7 +48,25 @@ func (e *Block) If(condition string, block *Block) *Block {
 	return e
 }
 
-func (e *Block) AddLine(codes ...interface{}) *Block {
+// Check is a template for
+//    if <errName> != nil {
+//	      return <p0,...,pn>, fmt.Errorf("<msg>: %w",<errName>)
+//    }
+func (e *Block) Check(errName string, msg string, returnParams ...string) *Block {
+	e.AddLine("if ", errName, "!= nil {")
+	e.Add("return ")
+	for _, param := range returnParams {
+		e.Add(param)
+		e.Add(", ")
+	}
+	e.Add(NewTypeDecl("fmt.Errorf"), `("`, msg, `: %w", `, errName, ")")
+	e.NewLine()
+	e.AddLine("}")
+
+	return e
+}
+
+func (e *Block) Add(codes ...interface{}) *Block {
 	for _, code := range codes {
 		switch t := code.(type) {
 		case fileProviderAttacher:
@@ -63,6 +81,13 @@ func (e *Block) AddLine(codes ...interface{}) *Block {
 			})
 		}
 	}
+
+	return e
+}
+
+func (e *Block) AddLine(codes ...interface{}) *Block {
+	e.Add(codes...)
+
 	if len(codes) > 0 {
 		e.NewLine()
 	}
