@@ -106,6 +106,9 @@ func TestNewProject(t *testing.T) {
 					AddMethods(
 						src.NewFunc("hello").AddParams(src.NewParameter("OhMy", src.NewTypeDecl("error"))).SetVariadic(true),
 					),
+
+				src.NewIntEnum("Status", "unknown", "running", "stopped").SetDoc("...is an enum test."),
+				src.NewStringEnum("Status2", "unknown", "running", "stopped").SetDoc("...is an enum test."),
 			).String(),
 	)
 
