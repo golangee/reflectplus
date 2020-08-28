@@ -3,7 +3,7 @@ package golang
 import (
 	"fmt"
 	"github.com/golangee/reflectplus/meta"
-	"github.com/golangee/reflectplus/src"
+	"github.com/golangee/src"
 	"reflect"
 )
 
